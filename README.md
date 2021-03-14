@@ -67,7 +67,7 @@ monero/xmr: 85s5WnUGQUBYHK5RrfL5DKfazQiCUUaiiDspNMGGVYYj4zKxoUyxcbEheYBSNTAGoReF
 ## Разные мемусы
 
 * капча
-* ![](https://i.imgur.com/U5esoJF.jpg)
+* ![](https://i.imgur.com/HBUGQbo.jpg)
 * ![](https://i.imgur.com/7YRO68Z.jpg)
 * ![](https://i.imgur.com/Sat30qW.jpg)
 * mark это waslost, У него подгорело с того что я свой софт сделал :peka:
