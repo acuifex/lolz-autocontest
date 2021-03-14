@@ -1,0 +1,9 @@
+eventlet
+beautifulsoup4
+requests
+colorama
+pycrypto
+pycryptodome # сука виндусятеры кривожопые
+traceback_with_variables
+coloredlogs
+verboselogs
