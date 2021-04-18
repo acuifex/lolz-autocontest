@@ -5,7 +5,11 @@
 
 Могу добавить другие валюты если нужно.
 
-monero/xmr: 85s5WnUGQUBYHK5RrfL5DKfazQiCUUaiiDspNMGGVYYj4zKxoUyxcbEheYBSNTAGoReF8VT7iAWAXcfV3YVca6TKBtt5dB4
+Monero/xmr: 85s5WnUGQUBYHK5RrfL5DKfazQiCUUaiiDspNMGGVYYj4zKxoUyxcbEheYBSNTAGoReF8VT7iAWAXcfV3YVca6TKBtt5dB4
+Zcash/zec: zs1uym38kghvpy7v0gkruqmg79030qw42xwzttavfxrqd9e8p7kf0v5sk4tdt6x8e8r4tnpztapmjn
+Dash/dash: XkyFZAYpYmjcU72R54EskKKSs8R3iGZ8Vy
+Bitcoin cash/bch: qp2kty2330sd6vgcsu8aggrm3clkydzscgwd29paa8
+
 ## Установка и запуск
 
 #### ubuntu
