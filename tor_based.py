@@ -19,33 +19,14 @@ import sys
 lolzdomain = "lolz.guru"
 lolzUrl = "https://" + lolzdomain + "/"
 
-##################################################### РЕДАКТИРУЕМ ТОЛЬКО ТО ЧТО СНИЗУ
-#####################################################
-users = {
-    "tomas": {  # Назвать аккаунт в одно слово
-        "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",  # ОБЯЗАТЕЛЬНО МЕНЯЕМ НА СВОЙ!!!!
-        "xf_user": "136698%6969420CcBaDCoDe696969",  # Твоя кука входа
-        "df_id": "696969abcdef",  # Айди сессии
-        "xf_tfa_trust": "asdgdfhkuo253qz-"  # Может не быть этой куки при некоторых случаях. не волнуемся
-    },
-    # "donate": {
-    #     "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
-    #     "xf_user": "136698%6969420CcBaDCoDe696969",
-    #     "df_id": "696969abcdef",
-    #     "xf_tfa_trust": "asdgdfhkuo253qz-"
-    # },
-}
-
-torproxy = True
-
-found_count = 8  # Если нашелся розыгрыш чекать розыгрыши каждые low_time секунд found_count раз
-low_time = 5  # Чекать каждые low_time Секунд если нашелся новый розыгрыш
-high_time = 20  # Чекать каждые high_time секунд если нету новых розыгрышей
-#####################################################
-##################################################### РЕДАКТИРУЕМ ТОЛЬКО ТО ЧТО СВЕРХУ
-
-
-
+f = open('settings.json')
+data = json.load(f)
+users = data["users"]
+torproxy = data["use_tor"]
+found_count = data["found_count"]
+low_time = data["low_time"]
+high_time = data["high_time"]
+f.close()
 
 level_styles = {'debug': {'color': 8},
                 'info': {},
