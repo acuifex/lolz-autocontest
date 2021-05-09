@@ -1,5 +1,5 @@
 # Specify filepatterns you want git to ignore.
-
+/settings.json
 /venv/
 /.idea/
 /__pycache__/

@@ -1,14 +1,20 @@
-## Donate
-В отличии от некоторых я все таки делаю бесплатно, Задонатьте пж)
+## Преимущества
+- Работает на запросах без браузерного мусора
+- Чистая логика - никаких нейронок а значит практически 0 цп нагрузки
+- Бесплатно, в отличии от версии waslost
 
-Принимаю только крипту. Bincoin/btc и Ethereum/eth не подходят из-за конских комиссий.
+## Donate
+В отличии от некоторых я все таки делаю бесплатно, Задонатьте или помайните на кошельки пж)
+
+Принимаю пока только крипту. Bincoin/btc и Ethereum/eth не подходят из-за конских комиссий.
 
 Могу добавить другие валюты если нужно.
 
-Monero/xmr: 85s5WnUGQUBYHK5RrfL5DKfazQiCUUaiiDspNMGGVYYj4zKxoUyxcbEheYBSNTAGoReF8VT7iAWAXcfV3YVca6TKBtt5dB4
-Zcash/zec: zs1uym38kghvpy7v0gkruqmg79030qw42xwzttavfxrqd9e8p7kf0v5sk4tdt6x8e8r4tnpztapmjn
-Dash/dash: XkyFZAYpYmjcU72R54EskKKSs8R3iGZ8Vy
-Bitcoin cash/bch: qp2kty2330sd6vgcsu8aggrm3clkydzscgwd29paa8
+- Monero/xmr: 85s5WnUGQUBYHK5RrfL5DKfazQiCUUaiiDspNMGGVYYj4zKxoUyxcbEheYBSNTAGoReF8VT7iAWAXcfV3YVca6TKBtt5dB4
+- Zcash/zec: zs1uym38kghvpy7v0gkruqmg79030qw42xwzttavfxrqd9e8p7kf0v5sk4tdt6x8e8r4tnpztapmjn
+- Dash/dash: XkyFZAYpYmjcU72R54EskKKSs8R3iGZ8Vy
+- Bitcoin cash/bch: qp2kty2330sd6vgcsu8aggrm3clkydzscgwd29paa8
+- vertcoin/vtc: vtc1qe6gjlpaqnlvygnw2xtuf09ph5a66yarng4mhx2
 
 ## Установка и запуск
 
