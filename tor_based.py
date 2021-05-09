@@ -159,23 +159,26 @@ class user:
                                     self.logger.critical("%s", contestsoup.text)
                                 self.logger.debug("csrf: %s", str(csrf))
                                 divcaptcha = contestsoup.find("div", id="Captcha")
-                                captchahash = divcaptcha.find("input", attrs={"name": "captcha_question_hash"}).get("value")
-                                svg = divcaptcha.find("div", class_="captchaImg").find("svg")\
-                                    .find("path", class_="iZQNWyob_0").get("d").partition(",")[0]
-                                answer = solvesvg(svg)
-                                self.logger.debug("solved svg: %s", answer)
+                                if not divcaptcha:
+                                    self.logger.warning("it just so happened that this contest just ended between requesting the list and requesting the page")
+                                else:
+                                    captchahash = divcaptcha.find("input", attrs={"name": "captcha_question_hash"}).get("value")
+                                    svg = divcaptcha.find("div", class_="captchaImg").find("svg")\
+                                        .find("path", class_="iZQNWyob_0").get("d").partition(",")[0]
+                                    answer = solvesvg(svg)
+                                    self.logger.debug("solved svg: %s", answer)
 
-                                self.logger.debug("waiting for parcipitation...")
-                                response = self.parcipitate(str(thrid), answer, captchahash, csrf)
-                                if response is not None:
-                                    if "error" in response and response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
-                                        blacklist.add(thrid)
+                                    self.logger.debug("waiting for parcipitation...")
+                                    response = self.parcipitate(str(thrid), answer, captchahash, csrf)
+                                    if response is not None:
+                                        if "error" in response and response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
+                                            blacklist.add(thrid)
 
-                                    if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
-                                        self.logger.success("succesefully parcipitated in %s threadid %s", contestname, thrid)
-                                    else:
-                                        self.logger.error("didn't parcipitate. svg: %s", svg)
-                                    self.logger.debug("%s", str(response))
+                                        if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
+                                            self.logger.success("succesefully parcipitated in %s threadid %s", contestname, thrid)
+                                        else:
+                                            self.logger.error("didn't parcipitate. svg: %s", svg)
+                                        self.logger.debug("%s", str(response))
                             else:
                                 self.logger.error("%s", contestsoup.text)
                                 self.logger.error("no csrf token!")
