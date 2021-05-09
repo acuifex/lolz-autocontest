@@ -177,9 +177,9 @@ class user:
                                     self.logger.critical("csrf token is empty. dead cookies? FIXME!!!")
                                     self.logger.critical("%s", contestsoup.text)
                                 self.logger.debug("csrf: %s", str(csrf))
-                                block = contestsoup.find("div", class_="captchaBlock")
-                                captchahash = block.find("input", name="captcha_question_hash").get("value")
-                                svg = block.find("div", class_="captchaImg").find("svg")\
+                                divcaptcha = contestsoup.find("div", id="Captcha")
+                                captchahash = divcaptcha.find("input", attrs={"name": "captcha_question_hash"}).get("value")
+                                svg = divcaptcha.find("div", class_="captchaImg").find("svg")\
                                     .find("path", class_="iZQNWyob_0").get("d").partition(",")[0]
                                 answer = solvesvg(svg)
                                 self.logger.debug("solved svg: %s", answer)
@@ -192,7 +192,8 @@ class user:
 
                                     if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
                                         self.logger.success("succesefully parcipitated in %s threadid %s", contestname, thrid)
-
+                                    else:
+                                        self.logger.error("didn't parcipitate. svg: %s", svg)
                                     self.logger.debug("%s", str(response))
                             else:
                                 self.logger.error("%s", contestsoup.text)
@@ -225,8 +226,11 @@ class user:
             if key == "User-Agent":
                 self.session.headers.update({"User-Agent": value})
             else:
+                # these are strict:
+                # df_id is with dot
+                # xf_user and xf_tfa_trust are without dots
                 self.session.cookies.set_cookie(
-                    requests.cookies.create_cookie(domain=lolzdomain, name=key, value=value))
+                    requests.cookies.create_cookie(domain=("." if key == "df_id" else "")+lolzdomain, name=key, value=value))
         self.session.cookies.set_cookie(
             requests.cookies.create_cookie(domain=lolzdomain, name='xf_viewedContestsHidden', value='1'))
         self.session.cookies.set_cookie(
@@ -297,90 +301,57 @@ translation_dict = {
 }
 
 def decode_letter(encletter: str) -> str:
-    return translation_dict[encletter[10:-1]]  # if this going to fail you're doomed anyway
+    return translation_dict[encletter[:-1]]  # if this going to fail you're doomed anyway
 
 
-def solvesvg(svg: str) -> str:  # i have absolute fucking no idea how it works.
-    # moving around functions for 4 hours straight doesn't help with understanding this in the slightest
-    # if you're mad enough to refactor this piece of shit then i wanna wish you a fucking good luck, you will need it
-    answer = ""
+reletter = re.compile(r'[MLQZ]')
+refloat = re.compile(r'-?\d+(?:\.\d+)?')
+
+def solvesvg(svg: str) -> str:
+    letterbuf = ""
     outstr = ""
-    float_start = 0
-    ammount_of_floats = 0
-    ammount_of_floats_extracted = 0
-    is_m = False
-    reading_letter=True
-    maxx = 0
-    last_hit_z = False
-    basex, basey = 0, 0
+    iterletters = reletter.finditer(svg)
+    iterfloats = refloat.finditer(svg)
+    maxx = 0.0
+    basex = 0.0
+    basey = 0.0
+    last_was_z = False
 
-    for i, char in enumerate(svg):
-        if not reading_letter:
-            if not char.isdigit() and char != ".":
-                ammount_of_floats -= 1
-
-                tmpnum = float(svg[float_start:i])
-                if last_hit_z and maxx < tmpnum and is_m:
-                    outstr += decode_letter(answer)
-                    answer = ""
-                    last_hit_z = False
-                if is_m:
-                    if last_hit_z and maxx > basex:
-                        if ammount_of_floats_extracted % 2 == 0:
-                            answer += "M"
-                            oldx = basex
-                            basex = tmpnum  # it's x
-                            answer += "{:.2f} ".format(tmpnum - oldx)
-                            basex = oldx
-                        else:
-                            oldy = basey
-                            basey = tmpnum  # it's y
-                            answer += "{:.2f}".format(tmpnum - oldy)
-                            basey = oldy
-                    else:
-                        if ammount_of_floats_extracted % 2 == 0:
-                            answer += "M"
-                            basex = tmpnum  # it's x
-                            answer += "{:.2f} ".format(tmpnum - basex)
-                        else:
-                            basey = tmpnum  # it's y
-                            answer += "{:.2f}".format(tmpnum - basey)
-                else:
-                    if ammount_of_floats_extracted % 2 == 0:
-                        answer += "{:.2f} ".format(tmpnum - basex)
-                    else:
-                        answer += "{:.2f}".format(tmpnum - basey)
-                if ammount_of_floats == 2:
-                    answer += " " # hacky
-                if maxx < tmpnum and ammount_of_floats_extracted % 2 == 0:
-                    maxx = tmpnum
-                float_start = i+1
-
-                ammount_of_floats_extracted += 1
-                if ammount_of_floats == 0:
-                    reading_letter = True
-        if reading_letter:
-            is_m = False
-            reading_letter = False
-            float_start = i + 1
-            if char == "M":
-                ammount_of_floats = 2
-                is_m = True
-            elif char == "L":
-                answer += "L"
-                ammount_of_floats = 2
-            elif char == "Q":
-                answer += "Q"
-                ammount_of_floats = 4
-            elif char == "Z":
-                answer += "Z"
-                last_hit_z = True
-                reading_letter = True
+    for letter in iterletters:
+        letter = letter.group(0)
+        if letter == 'M':
+            x = float(next(iterfloats).group(0))
+            y = float(next(iterfloats).group(0))
+            if maxx < x:
+                basex = x
+                basey = y
             else:
-                print("bad!")
-
-    outstr += decode_letter(answer)
-
+                letterbuf += "M{:.2f} {:.2f}".format(x-basex, y-basey)
+            if maxx < basex and last_was_z:
+                outstr += decode_letter(letterbuf)
+                letterbuf = ""
+            if x > maxx:
+                maxx = x
+        elif letter == 'L':
+            x = float(next(iterfloats).group(0))
+            y = float(next(iterfloats).group(0))
+            letterbuf += "L{:.2f} {:.2f}".format(x-basex, y-basey)
+            if x > maxx:
+                maxx = x
+        elif letter == 'Q':
+            x = float(next(iterfloats).group(0))
+            y = float(next(iterfloats).group(0))
+            x2 = float(next(iterfloats).group(0))
+            y2 = float(next(iterfloats).group(0))
+            letterbuf += "Q{:.2f} {:.2f} {:.2f} {:.2f}".format(x-basex, y-basey, x2-basex, y2-basey)
+            if x > maxx:
+                maxx = x
+        elif letter == 'Z':
+            letterbuf += "Z"
+            last_was_z = True
+        else:
+            print("Bad! {}".format(letter))
+    outstr += decode_letter(letterbuf) # big hack, now gives me the last letter. i'm lazy
     return outstr
 
 
