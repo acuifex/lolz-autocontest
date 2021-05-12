@@ -94,19 +94,21 @@ class user:
 
 
     def checkForJsAndFix(self, soup):
-        if (hueta := soup.find("noscript")) and (hueta := hueta.find("p")) \
-                and hueta.string == "Please enable JavaScript and Cookies in your browser.":
-            self.logger.verbose("lolz asks to complete js task")
+        noscript = soup.find("noscript")
+        if noscript:
+            pstring = noscript.find("p")
+            if pstring and pstring.string == "Please enable JavaScript and Cookies in your browser.":
+                self.logger.verbose("lolz asks to complete js task")
 
-            resp = self.makeRequest(Methods.get, lolzUrl + "process-qv9ypsgmv9.js", timeout_eventlet=15, timeout=12.05, retries=3)
-            if resp is None:
-                return True
+                resp = self.makeRequest(Methods.get, lolzUrl + "process-qv9ypsgmv9.js", timeout_eventlet=15, timeout=12.05, retries=3)
+                if resp is None:
+                    return True
 
-            koki = dealWithGayStuff(resp.text)
-            self.logger.debug("PoW ansfer %s", str(koki))
-            self.session.cookies.set_cookie(
-                requests.cookies.create_cookie(domain="." + lolzdomain, name='df_id', value=koki.decode("ascii")))
-            return True  # should retry
+                koki = dealWithGayStuff(resp.text)
+                self.logger.debug("PoW ansfer %s", str(koki))
+                self.session.cookies.set_cookie(
+                    requests.cookies.create_cookie(domain="." + lolzdomain, name='df_id', value=koki.decode("ascii")))
+                return True  # should retry
         return False
 
     def changeProxy(self):
