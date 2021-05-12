@@ -30,9 +30,9 @@
 1. Устанавливаем пакеты нужные для работы.
 `pip3 install -r requirements.txt`
 1. Переименовываем settings.example.json в settings.json и редактируем в соответствии с секцией [Настройка](#Настройка)
-1. Запускаем в заднем фоне `nohup python3 -u tor_based.py > /dev/null 2>lolzautocontest-errors.log&`
+1. Запускаем в заднем фоне `bash ./start-background.sh`
 
-Остановить потом можно с помощью `kill -n SIGKILL $(pgrep -f "python3 -u tor_based.py")`
+Остановить потом можно с помощью `bash ./stop-background.sh`
 
 #### shindows
 `Python` возможно нужно поменять на `py`, я точно не помню как там у вас
