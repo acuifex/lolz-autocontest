@@ -1,11 +1,10 @@
+# noinspection PyUnresolvedReferences
 from traceback_with_variables import activate_by_import
 from bs4 import BeautifulSoup
 import random
 import string
 import eventlet
-# import requests
 from typing import Tuple
-requests = eventlet.import_patched('requests')
 from urllib.parse import quote
 from multiprocessing.pool import ThreadPool
 import base64
@@ -14,10 +13,14 @@ from PIL import Image
 import re
 import json
 import time
-import logging, coloredlogs, verboselogs
+import coloredlogs
+import verboselogs
 from logging.handlers import RotatingFileHandler
 from enum import Enum
 import sys
+
+# import requests
+requests = eventlet.import_patched('requests')
 
 lolzdomain = "lolz.guru"
 lolzUrl = "https://" + lolzdomain + "/"
@@ -56,12 +59,22 @@ pattern_captcha_img = re.compile(r'XenForo.ClickCaptcha.imgData\s*=\s*"([A-Za-z0
 # consoleHandler = logging.StreamHandler(sys.stdout)
 # consoleHandler.setFormatter(logfmt)
 
+
 class Methods(Enum):
     post = 'POST'
     get = 'GET'
 
-class user:
-    def makeRequest(self, method: Methods, url, checkforjs=False, timeout_eventlet=None, retries=1, data=None, json=None, **kwargs):
+
+class User:
+    def makerequest(self,
+                    method: Methods,
+                    url,
+                    checkforjs=False,
+                    timeout_eventlet=None,
+                    retries=1,
+                    data=None,
+                    json=None,
+                    **kwargs):
         for i in range(0, retries):
             timeoutobj = eventlet.Timeout(timeout_eventlet)
             try:
@@ -72,10 +85,10 @@ class user:
                     raise
                 except requests.Timeout:
                     self.logger.warning("%s requests timeout", url)
-                    self.changeProxy()
+                    self.changeproxy()
                 except eventlet.Timeout:
                     self.logger.warning("%s eventlet timeout", url)
-                    self.changeProxy()
+                    self.changeproxy()
                 except requests.ConnectionError:
                     self.logger.warning("%s ConnectionError", url)
                 time.sleep(low_time)
@@ -90,33 +103,35 @@ class user:
                     continue
 
                 soup = BeautifulSoup(resp.text, "html.parser")
-                if checkforjs and self.checkForJsAndFix(soup):
+                if checkforjs and self.checkforjsandfix(soup):
                     self.logger.debug("%s had JS PoW", url)
                     continue  # we have js gayness
                 return soup  # everything good
         else:
             return None  # failed after x retries
 
-
-    def checkForJsAndFix(self, soup):
+    def checkforjsandfix(self, soup):
         noscript = soup.find("noscript")
         if noscript:
             pstring = noscript.find("p")
             if pstring and pstring.string == "Please enable JavaScript and Cookies in your browser.":
                 self.logger.verbose("lolz asks to complete js task")
 
-                resp = self.makeRequest(Methods.get, lolzUrl + "process-qv9ypsgmv9.js", timeout_eventlet=15, timeout=12.05, retries=3)
+                resp = self.makerequest(Methods.get,
+                                        lolzUrl + "process-qv9ypsgmv9.js",
+                                        timeout_eventlet=15, timeout=12.05, retries=3)
                 if resp is None:
                     return True
 
                 df_idvalue = extractdf_id(resp.text)
-                self.logger.debug("PoW ansfer %s", str(df_idvalue))
-                self.session.cookies.set_cookie(
-                    requests.cookies.create_cookie(domain="." + lolzdomain, name='df_id', value=df_idvalue.decode("ascii")))
+                self.logger.debug("PoW answer %s", str(df_idvalue))
+                self.session.cookies.set_cookie(requests.cookies.create_cookie(domain="." + lolzdomain,
+                                                                               name='df_id',
+                                                                               value=df_idvalue.decode("ascii")))
                 return True  # should retry
         return False
 
-    def changeProxy(self):
+    def changeproxy(self):
         if not torproxy:
             return
         randstr = ''.join(random.choices(string.ascii_lowercase, k=5))
@@ -135,14 +150,19 @@ class user:
             try:
                 self.logger.notice("ip: %s", self.session.get("https://httpbin.org/ip", timeout=6.05).json()["origin"])
             except requests.Timeout:
-                self.changeProxy()
+                self.changeproxy()
                 time.sleep(low_time)
                 continue
             break
         while True:
             self.logger.info("loop at %.2f seconds", time.time() - starttime)
 
-            contestlistsoup = self.makeRequest(Methods.get, lolzUrl + "forums/contests/", timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=True)
+            contestlistsoup = self.makerequest(Methods.get,
+                                               lolzUrl + "forums/contests/",
+                                               timeout_eventlet=15,
+                                               timeout=12.05,
+                                               retries=3,
+                                               checkforjs=True)
             if contestlistsoup is not None:
                 contestlist = contestlistsoup.find("div", class_="latestThreads _insertLoadedContent")
                 if contestlist:
@@ -152,11 +172,17 @@ class user:
                         if thrid in blacklist:
                             continue
                         found_contest = found_count
-                        contestname = gay.find("div", class_="discussionListItem--Wrapper").find("a", class_="listBlock main PreviewTooltip").find("h3", class_="title").find("span").contents[0]
-                        self.logger.notice("parcipitating in %s threadid %d",
-                                            contestname, thrid)
+                        contestname = gay.find("div", class_="discussionListItem--Wrapper")\
+                            .find("a", class_="listBlock main PreviewTooltip")\
+                            .find("h3", class_="title").find("span").contents[0]
+                        self.logger.notice("participating in %s thread id %d", contestname, thrid)
 
-                        contestsoup = self.makeRequest(Methods.get, lolzUrl + "threads/" + str(thrid), retries=3, timeout_eventlet=15, timeout=12.05, checkforjs=True)
+                        contestsoup = self.makerequest(Methods.get,
+                                                       lolzUrl + "threads/" + str(thrid),
+                                                       retries=3,
+                                                       timeout_eventlet=15,
+                                                       timeout=12.05,
+                                                       checkforjs=True)
                         if contestsoup is not None:
                             script = contestsoup.find("script", text=pattern_csrf)
                             if script:
@@ -173,21 +199,24 @@ class user:
                                     scriptcaptcha = divcaptcha.find("script")
                                     dot = int(pattern_captcha_dot.search(scriptcaptcha.string).group(1))
                                     if dot != 20:
-                                        self.logger.critical("dotsize isn't 20 but instad is %d", dot)
+                                        self.logger.critical("dotsize isn't 20 but instead is %d", dot)
                                     img = pattern_captcha_img.search(scriptcaptcha.string).group(1)
                                     x, y, confidence = solve(img)
                                     self.logger.debug("solved x,y: %d,%d confidence: %.2f", x, y, confidence)
 
-                                    self.logger.debug("waiting for parcipitation...")
-                                    response = self.parcipitate(str(thrid), x, y, captchahash, csrf)
+                                    self.logger.debug("waiting for participation...")
+                                    response = self.participate(str(thrid), x, y, captchahash, csrf)
                                     if response is not None:
-                                        if "error" in response and response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
+                                        if "error" in response and \
+                                                response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
                                             blacklist.add(thrid)
 
                                         if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
-                                            self.logger.success("succesefully parcipitated in %s threadid %s", contestname, thrid)
+                                            self.logger.success("successfully participated in %s thread id %s",
+                                                                contestname,
+                                                                thrid)
                                         else:
-                                            self.logger.error("didn't parcipitate. img: %s", img)
+                                            self.logger.error("didn't participate. img: %s", img)
                                         self.logger.debug("%s", str(response))
                             else:
                                 self.logger.error("%s", contestsoup.text)
@@ -215,7 +244,6 @@ class user:
         self.session.headers.update(
             {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0"})
 
-
         for key, value in cookies[1].items():
             if key == "User-Agent":
                 self.session.headers.update({"User-Agent": value})
@@ -223,8 +251,10 @@ class user:
                 # these are strict:
                 # df_id is with dot
                 # xf_user and xf_tfa_trust are without dots
-                self.session.cookies.set_cookie(
-                    requests.cookies.create_cookie(domain=("." if key == "df_id" else "")+lolzdomain, name=key, value=value))
+                self.session.cookies.set_cookie(requests.cookies.create_cookie(
+                    domain=("." if key == "df_id" else "")+lolzdomain,
+                    name=key,
+                    value=value))
         self.session.cookies.set_cookie(
             requests.cookies.create_cookie(domain=lolzdomain, name='xf_viewedContestsHidden', value='1'))
         self.session.cookies.set_cookie(
@@ -232,9 +262,8 @@ class user:
         self.session.cookies.set_cookie(
             requests.cookies.create_cookie(domain=lolzdomain, name='xf_logged_in', value='1'))
 
-    def parcipitate(self, threadid: str, x: int, y: int, captchahash: str, csrf: str):
-
-        response = self.makeRequest(Methods.post, lolzUrl + "threads/" + threadid + "/participate", data={
+    def participate(self, threadid: str, x: int, y: int, captchahash: str, csrf: str):
+        response = self.makerequest(Methods.post, lolzUrl + "threads/" + threadid + "/participate", data={
                     'captcha_hash': captchahash,
                     'x': x,
                     'y': y,
@@ -255,6 +284,7 @@ class user:
             raise
 
         return parsed
+
 
 # mask of a circle. i know that this is suboptimal
 # non gray are required while gray are "optional" if you can say so
@@ -317,13 +347,13 @@ def solve(captchab64: str) -> Tuple[int, int, float]:
 
 def extractdf_id(html):
     return base64.b64decode(
-        re.sub(r"'\+'", "", re.search(r"var _0x2ef7=\[[A-Za-z0-9+/=',]*','([A-Za-z0-9+/=']*?)'\];", html).group(1)))
+        re.sub(r"'\+'", "", re.search(r"var _0x2ef7=\[[A-Za-z0-9+/=',]*','([A-Za-z0-9+/=']*?)'];", html).group(1)))
 
 
 def main():
     with ThreadPool(processes=len(users)) as pool:
-        userList = [user(u) for u in list(users.items())]
-        pool.map(user.work, userList)
+        userlist = [User(u) for u in list(users.items())]
+        pool.map(User.work, userlist)
         print("lul done?")
 
 

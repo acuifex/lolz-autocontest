@@ -12,8 +12,4 @@
 
 
 # куча прототипных файлов. мне лень чистить
-/main.py
-/main_WORKING_BK.py
-/proxyless.py
-/tor_based_bk.py
-/tor_based_bk_lastworking.py
+/backups/
