@@ -104,10 +104,10 @@ class user:
                 if resp is None:
                     return True
 
-                koki = dealWithGayStuff(resp.text)
-                self.logger.debug("PoW ansfer %s", str(koki))
+                df_idvalue = extractdf_id(resp.text)
+                self.logger.debug("PoW ansfer %s", str(df_idvalue))
                 self.session.cookies.set_cookie(
-                    requests.cookies.create_cookie(domain="." + lolzdomain, name='df_id', value=koki.decode("ascii")))
+                    requests.cookies.create_cookie(domain="." + lolzdomain, name='df_id', value=df_idvalue.decode("ascii")))
                 return True  # should retry
         return False
 
@@ -303,45 +303,7 @@ def solvesvg(svg: str) -> str:
     basey = 0.0
     last_was_z = False
 
-    for letter in iterletters:
-        letter = letter.group(0)
-        if letter == 'M':
-            x = float(next(iterfloats).group(0))
-            y = float(next(iterfloats).group(0))
-            if maxx < x:
-                basex = x
-                basey = y
-            else:
-                letterbuf += "M{:.2f} {:.2f}".format(x-basex, y-basey)
-            if maxx < basex and last_was_z:
-                outstr += decode_letter(letterbuf)
-                letterbuf = ""
-            if x > maxx:
-                maxx = x
-        elif letter == 'L':
-            x = float(next(iterfloats).group(0))
-            y = float(next(iterfloats).group(0))
-            letterbuf += "L{:.2f} {:.2f}".format(x-basex, y-basey)
-            if x > maxx:
-                maxx = x
-        elif letter == 'Q':
-            x = float(next(iterfloats).group(0))
-            y = float(next(iterfloats).group(0))
-            x2 = float(next(iterfloats).group(0))
-            y2 = float(next(iterfloats).group(0))
-            letterbuf += "Q{:.2f} {:.2f} {:.2f} {:.2f}".format(x-basex, y-basey, x2-basex, y2-basey)
-            if x > maxx:
-                maxx = x
-        elif letter == 'Z':
-            letterbuf += "Z"
-            last_was_z = True
-        else:
-            print("Bad! {}".format(letter))
-    outstr += decode_letter(letterbuf) # big hack, now gives me the last letter. i'm lazy
-    return outstr
-
-
-def dealWithGayStuff(html):
+def extractdf_id(html):
     return base64.b64decode(
         re.sub(r"'\+'", "", re.search(r"var _0x2ef7=\[[A-Za-z0-9+/=',]*','([A-Za-z0-9+/=']*?)'\];", html).group(1)))
 
