@@ -91,10 +91,10 @@
 
 ## Разные мемусы
 
+* ![](https://i.imgur.com/gny8CLz.png)
 * ![](https://i.imgur.com/OXg6MzD.png)
 * ![](https://i.imgur.com/O54NEHp.png)
 * ![](https://i.imgur.com/s5B7O5a.png)
-* капча
 * ![](https://i.imgur.com/HBUGQbo.jpg)
 * ![](https://i.imgur.com/7YRO68Z.jpg)
 * ![](https://i.imgur.com/Sat30qW.jpg)
