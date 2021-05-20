@@ -2,6 +2,7 @@ eventlet
 beautifulsoup4
 requests
 colorama
+Pillow
 traceback_with_variables
 coloredlogs
 verboselogs
