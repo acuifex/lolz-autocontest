@@ -1,6 +1,7 @@
 eventlet
 beautifulsoup4
 requests
+pysocks
 colorama
 Pillow
 traceback_with_variables
