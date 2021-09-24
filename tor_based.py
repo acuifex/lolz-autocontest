@@ -174,7 +174,7 @@ class User:
                         found_contest = found_count
                         contestname = gay.find("div", class_="discussionListItem--Wrapper")\
                             .find("a", class_="listBlock main PreviewTooltip")\
-                            .find("h3", class_="title").find("span").contents[0]
+                            .find("h3", class_="title").find("span", class_="spanTitle").contents[0]
                         self.logger.notice("participating in %s thread id %d", contestname, thrid)
 
                         contestsoup = self.makerequest(Methods.get,
