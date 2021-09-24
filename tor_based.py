@@ -265,6 +265,7 @@ class User:
     def participate(self, threadid: str, x: int, y: int, captchahash: str, csrf: str):
         response = self.makerequest(Methods.post, lolzUrl + "threads/" + threadid + "/participate", data={
                     'captcha_hash': captchahash,
+                    'captcha_type': "ClickCaptcha",
                     'x': x,
                     'y': y,
                     '_xfRequestUri': quote("/threads/" + threadid + "/"),
@@ -312,37 +313,39 @@ isgray_mask = (
     (True, True, True, True, True, True, True, True, True, True, False, True, True, True, True, True, True, True, True, True, True)
 )
 total_grays = sum(x.count(True) for x in isgray_mask)
+total_reds = sum(x.count(False) for x in isgray_mask)
 
 
 def solve(captchab64: str) -> Tuple[int, int, float]:
     img = Image.open(io.BytesIO(base64.b64decode(captchab64)))
     pixels = img.load()
-    print(img.size)
     bestx = besty = 0
     bestconfidence = 0
     for tiley in range(0, img.size[1], 20):
         for tilex in range(0, img.size[0], 20):
-            gray_count = 0
-            is_bad = False
+            gray_count = 0  # counts the amount of correct color outside the circle
+            red_count = 0  # counts the amount of correct color inside the circle
+            junk_in_red_count = 0  # counts the amount of non red and non gray inside the circle
             for x in range(21):
                 for y in range(21):
                     if tiley + y >= 200 or tilex + x >= 240:  # if out of bounds, just assume it's correct
                         if isgray_mask[x][y]:
                             gray_count += 1
+                        else:
+                            red_count += 1  # this is probably bad, this will create up to 2 incorrect pixels!!! fight me about it
                         continue
 
                     if isgray_mask[x][y]:
                         gray_count += 1 if 0xff not in pixels[x+tilex, y+tiley] else 0
                     else:
-                        if pixels[x+tilex, y+tiley] == (0x40, 0x40, 0x40):
-                            is_bad = True
-                            break
-                if is_bad:
-                    break
-            if bestconfidence < gray_count and not is_bad:
-                bestconfidence = gray_count
+                        red_count += 1 if 0xff in pixels[x + tilex, y + tiley] else 0
+                        junk_in_red_count += 1 if 0xff not in pixels[x + tilex, y + tiley] and pixels[x + tilex, y + tiley] != (0x40, 0x40, 0x40) else 0
+            confidence = abs(junk_in_red_count*0.3 + red_count-total_reds/2) * -1 + gray_count * 1.6
+            # 0.3, -1 and 1.6 are the weights, negative weight means smaller the number - better
+            if bestconfidence < confidence:
+                bestconfidence = confidence
                 bestx, besty = tilex, tiley
-    return int(bestx/20), int(besty/20), bestconfidence/total_grays
+    return int(bestx/20), int(besty/20), bestconfidence
 
 
 def extractdf_id(html):
