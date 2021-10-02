@@ -139,8 +139,8 @@ class User:
         if proxy_type == 1:
             randstr = ''.join(random.choices(string.ascii_lowercase, k=5))
             self.logger.verbose("changing proxy to %s", randstr)
-            self.session.proxies = {'http': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.temp_name),
-                                    'https': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.temp_name)}
+            self.session.proxies = {'http': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.username),
+                                    'https': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.username)}
         elif proxy_type == 2:  # these are the moments i wish python had switch cases
             self.current_proxy_number += 1
             if self.current_proxy_number >= self.proxy_pool_len:
@@ -242,20 +242,20 @@ class User:
             else:
                 time.sleep(high_time)
 
-    def __init__(self, cookies):
+    def __init__(self, parameters):
         self.session = requests.session()
-        self.temp_name = cookies[0]
+        self.username = parameters[0]
 
-        self.logger = verboselogs.VerboseLogger(self.temp_name)
+        self.logger = verboselogs.VerboseLogger(self.username)
         self.logger.addHandler(fileHandler)
         # self.logger.addHandler(consoleHandler)
         coloredlogs.install(fmt=logfmtstr, stream=sys.stdout, level_styles=level_styles,
                             milliseconds=True, level='DEBUG', logger=self.logger)
-        self.logger.debug("cookies %s", cookies)
+        self.logger.debug("user parameters %s", parameters)
 
         self.session.headers.update(
             {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0"})
-        for key, value in cookies[1].items():
+        for key, value in parameters[1].items():
             if key == "User-Agent":
                 self.session.headers.update({"User-Agent": value})
             if key == "df_id":
@@ -269,14 +269,14 @@ class User:
                     name=key,
                     value=value))
             if key == "proxy_pool":
-                self.proxy_pool = cookies[1]["proxy_pool"]
+                self.proxy_pool = value["proxy_pool"]
                 self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
 
         if proxy_enabled and proxy_type == 2:  # dumbass user check
             if not hasattr(self, 'proxy_pool'):
-                raise Exception("%s doesn't have proxy_pool set" % self.temp_name)
+                raise Exception("%s doesn't have proxy_pool set" % self.username)
             if self.proxy_pool_len == 0:
-                raise Exception("%s has empty proxy_pool" % self.temp_name)
+                raise Exception("%s has empty proxy_pool" % self.username)
         # kinda a hack to loop trough proxies because python doesn't have static variables
         self.current_proxy_number = -1  # self.changeproxy adds one to this number
         self.changeproxy()  # set initital proxy
