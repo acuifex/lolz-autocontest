@@ -28,7 +28,8 @@ lolzUrl = "https://" + lolzdomain + "/"
 f = open('settings.json')
 data = json.load(f)
 users = data["users"]
-torproxy = data["use_tor"]
+proxy_enabled = data["use_proxy"]
+proxy_type = data["proxy_type"]
 found_count = data["found_count"]
 low_time = data["low_time"]
 high_time = data["high_time"]
@@ -132,12 +133,25 @@ class User:
         return False
 
     def changeproxy(self):
-        if not torproxy:
+        if not proxy_enabled:
             return
-        randstr = ''.join(random.choices(string.ascii_lowercase, k=5))
-        self.logger.verbose("changing proxy to %s", randstr)
-        self.session.proxies = {'http': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.temp_name),
-                                'https': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.temp_name)}
+
+        if proxy_type == 1:
+            randstr = ''.join(random.choices(string.ascii_lowercase, k=5))
+            self.logger.verbose("changing proxy to %s", randstr)
+            self.session.proxies = {'http': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.temp_name),
+                                    'https': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.temp_name)}
+        elif proxy_type == 2:  # these are the moments i wish python had switch cases
+            self.current_proxy_number += 1
+            if self.current_proxy_number >= self.proxy_pool_len:
+                self.current_proxy_number = 0
+            proxy = self.proxy_pool[self.current_proxy_number]
+            self.logger.verbose("changing proxy to %s index %d", proxy, self.current_proxy_number)
+            self.session.proxies = {'http': proxy,
+                                    'https': proxy}
+            pass
+        elif proxy_type == 3:  # TODO: implement global pool
+            pass
 
     def work(self):
         blacklist = set()
@@ -238,23 +252,34 @@ class User:
         coloredlogs.install(fmt=logfmtstr, stream=sys.stdout, level_styles=level_styles,
                             milliseconds=True, level='DEBUG', logger=self.logger)
         self.logger.debug("cookies %s", cookies)
-        if torproxy:
-            self.session.proxies = {'http': 'socks5://{}@localhost:9050'.format("asdasd:" + cookies[0]),
-                                    'https': 'socks5://{}@localhost:9050'.format("asdasd:" + cookies[0])}
+
         self.session.headers.update(
             {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0"})
-
         for key, value in cookies[1].items():
             if key == "User-Agent":
                 self.session.headers.update({"User-Agent": value})
-            else:
-                # these are strict:
-                # df_id is with dot
-                # xf_user and xf_tfa_trust are without dots
+            if key == "df_id":
                 self.session.cookies.set_cookie(requests.cookies.create_cookie(
-                    domain=("." if key == "df_id" else "")+lolzdomain,
+                    domain="."+lolzdomain,
                     name=key,
                     value=value))
+            if key in ["xf_user", "xf_tfa_trust"]:
+                self.session.cookies.set_cookie(requests.cookies.create_cookie(
+                    domain=lolzdomain,
+                    name=key,
+                    value=value))
+            if key == "proxy_pool":
+                self.proxy_pool = cookies[1]["proxy_pool"]
+                self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
+
+        if proxy_enabled and proxy_type == 2:  # dumbass user check
+            if not hasattr(self, 'proxy_pool'):
+                raise Exception("%s doesn't have proxy_pool set" % self.temp_name)
+            if self.proxy_pool_len == 0:
+                raise Exception("%s has empty proxy_pool" % self.temp_name)
+        # kinda a hack to loop trough proxies because python doesn't have static variables
+        self.current_proxy_number = -1  # self.changeproxy adds one to this number
+        self.changeproxy()  # set initital proxy
         self.session.cookies.set_cookie(
             requests.cookies.create_cookie(domain=lolzdomain, name='xf_viewedContestsHidden', value='1'))
         self.session.cookies.set_cookie(

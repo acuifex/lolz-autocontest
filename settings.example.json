@@ -4,10 +4,16 @@
       "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:86.0) Gecko/20100101 Firefox/86.0",
       "xf_user": "136698%6969420CcBaDCoDe696969",
       "df_id": "696969abcdef",
-      "xf_tfa_trust": "asdgdfhkuo253qz-"
+      "xf_tfa_trust": "asdgdfhkuo253qz-",
+      "proxy_pool": [
+        "https://log:pass@127.0.0.10:8081",
+        "socks5://log:pass@10.0.0.1:9050"
+      ]
     }
   },
-  "use_tor": true,
+  "use_proxy": true,
+  "_comment": "types are: 1 - tor, 2 - individual proxies, 3 - global proxies (todo), other numbers will disable proxy",
+  "proxy_type": 1,
   "found_count": 8,
   "low_time": 5,
   "high_time": 20
