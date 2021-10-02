@@ -50,7 +50,7 @@ level_styles = {'debug': {'color': 8},
 logfmtstr = "%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s"
 logfmt = coloredlogs.ColoredFormatter(logfmtstr, level_styles=level_styles)
 
-fileHandler = RotatingFileHandler("lolzautocontest.log", maxBytes=1024*1024*4, backupCount=10)  # rotate every 4 megs
+fileHandler = RotatingFileHandler("lolzautocontest.log", maxBytes=1024*1024*4, backupCount=10, encoding='utf-8')  # rotate every 4 megs
 fileHandler.setFormatter(logfmt)
 
 pattern_csrf = re.compile(r'_csrfToken:\s*\"(.*)\",', re.MULTILINE)
