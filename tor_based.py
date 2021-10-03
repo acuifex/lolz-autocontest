@@ -269,7 +269,7 @@ class User:
                     name=key,
                     value=value))
             if key == "proxy_pool":
-                self.proxy_pool = value["proxy_pool"]
+                self.proxy_pool = value
                 self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
 
         if proxy_enabled and proxy_type == 2:  # dumbass user check
