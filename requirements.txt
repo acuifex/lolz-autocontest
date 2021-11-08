@@ -7,3 +7,5 @@ Pillow-SIMD
 traceback_with_variables
 coloredlogs
 verboselogs
+numpy
+mmh3
