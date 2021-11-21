@@ -223,7 +223,7 @@ class User:
                 self.logger.critical("%s doesn't have a solver. Exiting.", captchaType)
                 raise RuntimeError
 
-            self.logger.info("for %s using solver %s", captchaType, type(solver).__name__)
+            self.logger.verbose("for %s using solver %s", captchaType, type(solver).__name__)
 
             participateParams = solver.solve(divcaptcha)
 
