@@ -1,5 +1,4 @@
-# noinspection PyUnresolvedReferences
-from traceback_with_variables import activate_by_import
+from traceback_with_variables import Format, ColorSchemes, global_print_exc
 from bs4 import BeautifulSoup
 import random
 import string
@@ -21,12 +20,22 @@ import sys
 import numpy as np
 import struct
 import mmh3
+import os
+
+fmterr = Format(
+    max_value_str_len=-1,
+    color_scheme=ColorSchemes.common,
+    max_exc_str_len=-1,
+)
+global_print_exc(fmt=fmterr)
 
 # import requests
 requests = eventlet.import_patched('requests')
 
 lolzdomain = "lolz.guru"
 lolzUrl = "https://" + lolzdomain + "/"
+
+imagesDir = "ErrorImages/"
 
 f = open('settings.json')
 data = json.load(f)
@@ -54,7 +63,8 @@ level_styles = {'debug': {'color': 8},
 logfmtstr = "%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s"
 logfmt = coloredlogs.ColoredFormatter(logfmtstr, level_styles=level_styles)
 
-fileHandler = RotatingFileHandler("lolzautocontest.log", maxBytes=1024*1024*4, backupCount=10, encoding='utf-8')  # rotate every 4 megs
+# rotate every 4 megs
+fileHandler = RotatingFileHandler("lolzautocontest.log", maxBytes=1024 * 1024 * 4, backupCount=10, encoding='utf-8')
 fileHandler.setFormatter(logfmt)
 
 pattern_csrf = re.compile(r'_csrfToken:\s*\"(.*)\",', re.MULTILINE)
@@ -78,7 +88,7 @@ class User:
                     retries=1,
                     data=None,
                     json=None,
-                    **kwargs):
+                    **kwargs) -> Union[requests.Response, None]:
         for i in range(0, retries):
             timeoutobj = eventlet.Timeout(timeout_eventlet)
             try:
@@ -106,15 +116,13 @@ class User:
                     time.sleep(low_time)
                     continue
 
-                soup = BeautifulSoup(resp.text, "html.parser")
-                if checkforjs and self.checkforjsandfix(soup):
-                    self.logger.debug("%s had JS PoW", url)
-                    continue  # we have js gayness
+                if checkforjs:
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    if self.checkforjsandfix(soup):
+                        self.logger.debug("%s had JS PoW", url)
+                        continue  # we have js gayness
 
-                # TODO: this is a dirty dirty hack, remove this when you're gonna refactor and allways return resp
-                if not checkforjs:
-                    return resp
-                return soup  # everything good
+                return resp
         else:
             return None  # failed after x retries
 
@@ -160,8 +168,127 @@ class User:
         elif proxy_type == 3:  # TODO: implement global pool
             pass
 
+    def solvePage(self) -> bool:  # return whether we found any contests or not
+        found_contest = False
+        contestListResp = self.makerequest(Methods.get,
+                                           lolzUrl + "forums/contests/",
+                                           timeout_eventlet=15,
+                                           timeout=12.05,
+                                           retries=3,
+                                           checkforjs=True)
+        if contestListResp is None:
+            return False
+
+        contestlistsoup = BeautifulSoup(contestListResp.text, "html.parser")
+
+        contestList = contestlistsoup.find("div", class_="discussionListItems")
+        if contestList is None:
+            self.logger.critical("%s", contestlistsoup.text)
+            self.logger.critical("couldn't find discussionListItems. Exiting...")
+            raise RuntimeError
+
+        threadsList = []
+
+        stickyThreads = contestList.find("div", class_="stickyThreads")
+        if stickyThreads:
+            threadsList.extend(stickyThreads.findChildren(recursive=False))
+
+        latestThreads = contestList.find("div", class_="latestThreads")
+        if latestThreads:
+            threadsList.extend(latestThreads.findChildren(recursive=False))
+
+        if len(threadsList) == 0:
+            return False
+
+        self.logger.notice("detected %d contests", len(threadsList))
+        for contestDiv in threadsList:
+            thrid = int(contestDiv.get('id').split('-')[1])
+
+            if thrid in self.blacklist:
+                continue
+            found_contest = True
+            contestName = contestDiv.find("div", class_="discussionListItem--Wrapper") \
+                .find("a", class_="listBlock main PreviewTooltip") \
+                .find("h3", class_="title").find("span", class_="spanTitle").contents[0]
+
+            self.logger.notice("participating in %s thread id %d", contestName, thrid)
+
+            contestResp = self.makerequest(Methods.get,
+                                           lolzUrl + "threads/" + str(thrid),
+                                           retries=3,
+                                           timeout_eventlet=15,
+                                           timeout=12.05,
+                                           checkforjs=True)
+            if contestResp is None:
+                continue
+
+            contestSoup = BeautifulSoup(contestResp.text, "html.parser")
+
+            script = contestSoup.find("script", text=pattern_csrf)
+            if script is None:
+                self.logger.error("%s", contestSoup.text)
+                self.logger.error("no csrf token!")
+                continue
+
+            csrf = pattern_csrf.search(script.string).group(1)
+            if not csrf:
+                self.logger.critical("%s", contestSoup.text)
+                self.logger.critical("csrf token is empty. dead cookies? FIXME!!!")
+                continue
+            self.logger.debug("csrf: %s", str(csrf))
+
+            divcaptcha = contestSoup.find("div", class_="captchaBlock")
+            if divcaptcha is None:
+                self.logger.warning("Couldn't get captchaBlock. Lag or contest is over?")
+                continue
+
+            captchahash = divcaptcha.find("input", attrs={"name": "captcha_hash"}).get("value")
+            # TODO: more checks here?
+            scriptcaptcha = divcaptcha.find("script")
+            sidMatch = pattern_captcha_sid.search(scriptcaptcha.string).group(1)
+            self.logger.debug("sid: %s", sidMatch)
+            sid = int(sidMatch, 16).to_bytes(16, byteorder="big")
+
+            captcharesponse = self.requestcaptcha(sid)
+            if captcharesponse is None:
+                continue
+
+            y, captcha, puzzle, datahash = captcharesponse
+
+            if y > 170 or y < 0:
+                self.logger.error("y value from captcha response is invalid: %d", y)
+                continue
+
+            self.logger.debug("hash: %d", datahash)
+            x, diff = solve(captcha, puzzle, y)
+            self.logger.debug("solved x,y: %d,%d diff: %.2f", x, y, diff)
+
+            solutionResponse = self.sendsolution(sid, datahash, x)
+            if solutionResponse is None:
+                continue
+            self.logger.info("send solution response is: %d", solutionResponse)
+            # TODO: continue if solutionResponse is 0?
+
+            self.logger.debug("waiting for participation...")
+            response = self.participate(str(thrid), captchahash, csrf)
+            if response is None:
+                continue
+            if "error" in response and response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
+                self.blacklist.add(thrid)
+
+            if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
+                self.logger.success("successfully participated in %s thread id %s", contestName, thrid)
+            else:
+                if save_error_images:
+                    with open(imagesDir + '{0:X}_{0:d}_captcha.png'.format(datahash, y), 'wb') as file:
+                        file.write(captcha)
+                    with open(imagesDir + '{0:X}_{0:d}_puzzle.png'.format(datahash, y), 'wb') as file:
+                        file.write(puzzle)
+                self.logger.error("didn't participate: %s", str(response))
+            self.logger.debug("%s", str(response))
+        return found_contest
+
     def work(self):
-        blacklist = set()
         starttime = time.time()
         found_contest = 0
 
@@ -175,84 +302,13 @@ class User:
                 time.sleep(low_time)
                 continue
             break
+
         while True:
             self.logger.info("loop at %.2f seconds", time.time() - starttime)
 
-            contestlistsoup = self.makerequest(Methods.get,
-                                               lolzUrl + "forums/contests/",
-                                               timeout_eventlet=15,
-                                               timeout=12.05,
-                                               retries=3,
-                                               checkforjs=True)
-            if contestlistsoup is not None:
-                contestlist = contestlistsoup.find("div", class_="latestThreads _insertLoadedContent")
-                if contestlist:
-                    self.logger.notice("detected %d contests", len(contestlist.findChildren(recursive=False)))
-                    for gay in contestlist.findChildren(recursive=False):
-                        thrid = int(gay.get('id').split('-')[1])
-                        if thrid in blacklist:
-                            continue
-                        found_contest = found_count
-                        contestname = gay.find("div", class_="discussionListItem--Wrapper")\
-                            .find("a", class_="listBlock main PreviewTooltip")\
-                            .find("h3", class_="title").find("span", class_="spanTitle").contents[0]
-                        self.logger.notice("participating in %s thread id %d", contestname, thrid)
+            if self.solvePage():
+                found_contest = found_count
 
-                        contestsoup = self.makerequest(Methods.get,
-                                                       lolzUrl + "threads/" + str(thrid),
-                                                       retries=3,
-                                                       timeout_eventlet=15,
-                                                       timeout=12.05,
-                                                       checkforjs=True)
-                        if contestsoup is not None:
-                            script = contestsoup.find("script", text=pattern_csrf)
-                            if script:
-                                csrf = pattern_csrf.search(script.string).group(1)
-                                if not csrf:
-                                    self.logger.critical("csrf token is empty. dead cookies? FIXME!!!")
-                                    self.logger.critical("%s", contestsoup.text)
-                                self.logger.debug("csrf: %s", str(csrf))
-                                divcaptcha = contestsoup.find("div", class_="captchaBlock")
-                                if not divcaptcha:
-                                    self.logger.warning("it just so happened that this contest just ended between requesting the list and requesting the page")
-                                else:
-                                    captchahash = divcaptcha.find("input", attrs={"name": "captcha_hash"}).get("value")
-                                    scriptcaptcha = divcaptcha.find("script")
-                                    self.logger.debug("sid: %s", pattern_captcha_sid.search(scriptcaptcha.string).group(1))
-                                    sid = int(pattern_captcha_sid.search(scriptcaptcha.string).group(1), 16).to_bytes(16, byteorder="big")
-                                    captcharesponse = self.requestcaptcha(sid)
-                                    if captcharesponse:
-                                        y, captcha, puzzle, datahash = captcharesponse
-
-                                        self.logger.debug("hash: %d", datahash)
-                                        x, diff = solve(captcha, puzzle, y)
-                                        self.logger.debug("solved x,y: %d,%d diff: %.2f", x, y, diff)
-                                        solutionresponse = self.sendsolution(sid, datahash, x)
-                                        if solutionresponse is not None:
-
-                                            self.logger.debug("waiting for participation... %d", solutionresponse)
-                                            response = self.participate(str(thrid), captchahash, csrf)
-                                            if response is not None:
-                                                if "error" in response and \
-                                                        response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
-                                                    blacklist.add(thrid)
-
-                                                if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
-                                                    self.logger.success("successfully participated in %s thread id %s",
-                                                                        contestname,
-                                                                        thrid)
-                                                else:
-                                                    if save_error_images:
-                                                        with open(str(datahash) + '_captcha.png', 'wb') as file:
-                                                            file.write(captcha)
-                                                        with open(str(datahash) + '_puzzle.png', 'wb') as file:
-                                                            file.write(puzzle)
-                                                    self.logger.error("didn't participate: %s", str(response))
-                                                self.logger.debug("%s", str(response))
-                            else:
-                                self.logger.error("%s", contestsoup.text)
-                                self.logger.error("no csrf token!")
-                                continue
             if found_contest > 0:
                 found_contest -= 1
                 time.sleep(low_time)
@@ -277,7 +333,7 @@ class User:
                 self.session.headers.update({"User-Agent": value})
             if key == "df_id":
                 self.session.cookies.set_cookie(requests.cookies.create_cookie(
-                    domain="."+lolzdomain,
+                    domain="." + lolzdomain,
                     name=key,
                     value=value))
             if key in ["xf_user", "xf_tfa_trust"]:
@@ -294,6 +350,8 @@ class User:
                 raise Exception("%s doesn't have proxy_pool set" % self.username)
             if self.proxy_pool_len == 0:
                 raise Exception("%s has empty proxy_pool" % self.username)
+
+        self.blacklist = set()
         # kinda a hack to loop trough proxies because python doesn't have static variables
         self.current_proxy_number = -1  # self.changeproxy adds one to this number
         self.changeproxy()  # set initital proxy
@@ -305,8 +363,9 @@ class User:
             requests.cookies.create_cookie(domain=lolzdomain, name='xf_logged_in', value='1'))
 
     def requestcaptcha(self, sid: bytes) -> Union[Tuple[int, bytes, bytes, int], None]:
-        response = self.makerequest(Methods.post, "https://captcha." + lolzdomain + "/captcha", headers={'referer': "https://lolz.guru/",
-                                                                                                         'origin': "https://lolz.guru"}, cookies={}, data=sid,
+        response = self.makerequest(Methods.post, "https://captcha." + lolzdomain + "/captcha",
+                                    headers={'referer': "https://lolz.guru/",
+                                             'origin': "https://lolz.guru"}, cookies={}, data=sid,
                                     timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
 
         if response is None:
@@ -330,14 +389,15 @@ class User:
         tmp = bytes.fromhex("0288000000AD0100000288000000AE0100000287000000AE0100000287000000AF0100000287000000B00100000287000000B10100000287000000B20100000286000000B30100000286000000B40100000286000000B50100000286000000B60100000286000000B70100000286000000B80100000286000000B90100000286000000BA0100000286000000BB0100000286000000BC0100000286000000BD0100000286000000BE0100000286000000BF0100000285000000C00100000285000000C10100000285000000C20100000285000000C30100000285000000C40100000284000000C40100000284000000C50100000283000000C60100000283000000C70100000283000000C80100000283000000C90100000282000000C90100000282000000CA0100000282000000CB0100000281000000CB0100000281000000CC0100000281000000CD0100000281000000CE0100000281000000CF0100000281000000D00100000281000000D10100000281000000D20100000281000000D30100000281000000D40100000281000000D50100000281000000D60100000281000000D70100000282000000D70100000282000000D80100000282000000D90100000282000000DA0100000281000000DA0100000281000000DB0100000280000000DB010000027F000000DB010000027E000000DB010000027E000000DC010000027D000000DC010000027D000000DD010000027C000000DD010000027B000000DD010000027A000000DD0100000279000000DE0100000278000000DE0100000277000000DE0100000277000000DF010000")
         tmp += struct.pack("<Bii", 0x00, 119, 481)
         for i in range(x):
-            tmp += struct.pack("<Bii", 0x02, 119+i, 481)
-        tmp += struct.pack("<Bii", 0x01, 119+x, 481)
-        encrypted = applyencryption(datahash&0xffff, tmp)
+            tmp += struct.pack("<Bii", 0x02, 119 + i, 481)
+        tmp += struct.pack("<Bii", 0x01, 119 + x, 481)
+        encrypted = applyencryption(datahash & 0xffff, tmp)
 
         requestdata = b"hack_me_if_you_can\n" + sid + encrypted
 
-        response = self.makerequest(Methods.post, "https://captcha." + lolzdomain + "/captcha", headers={'referer': "https://lolz.guru/",
-                                                                                                         'origin': "https://lolz.guru"}, cookies={}, data=requestdata,
+        response = self.makerequest(Methods.post, "https://captcha." + lolzdomain + "/captcha",
+                                    headers={'referer': "https://lolz.guru/",
+                                             'origin': "https://lolz.guru"}, cookies={}, data=requestdata,
                                     timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
 
         if response is None:
@@ -347,13 +407,13 @@ class User:
 
     def participate(self, threadid: str, captchahash: str, csrf: str):
         response = self.makerequest(Methods.post, lolzUrl + "threads/" + threadid + "/participate", data={
-                    'captcha_hash': captchahash,
-                    'captcha_type': "Slider2Captcha",
-                    '_xfRequestUri': quote("/threads/" + threadid + "/"),
-                    '_xfNoRedirect': 1,
-                    '_xfToken': csrf,
-                    '_xfResponseType': "json",
-                }, timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=True)
+            'captcha_hash': captchahash,
+            'captcha_type': "Slider2Captcha",
+            '_xfRequestUri': quote("/threads/" + threadid + "/"),
+            '_xfNoRedirect': 1,
+            '_xfToken': csrf,
+            '_xfResponseType': "json",
+        }, timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=True)
 
         if response is None:
             return None
@@ -380,15 +440,18 @@ def applyencryption(key: int, data: bytes) -> bytes:
     out.seek(0)
     return out.read()
 
-# todo: check if y is within 0 to 200-30
+
 def solve(captcha: bytes, puzzle: bytes, y: int):
     img = Image.open(io.BytesIO(captcha))
-    img = img.filter(ImageFilter.Kernel(size=(3,3),kernel=(
-        0,1,0,
-        1,-4,1,
-        0,1,0
+
+    # builtins.OSError: image file is truncated
+    # why are you like this
+    img = img.filter(ImageFilter.Kernel(size=(3, 3), kernel=(
+        0, 1, 0,
+        1, -4, 1,
+        0, 1, 0
     ), scale=1))
-    img = img.crop((0, y, img.size[0], y+30))
+    img = img.crop((0, y, img.size[0], y + 30))
     captcha = np.asarray(img).sum(axis=0)
 
     # img.show()
@@ -404,7 +467,7 @@ def solve(captcha: bytes, puzzle: bytes, y: int):
     bestx = 0
     leastdiff = 2147483647  # basically maxint, 999999 would work too but meh
     # difflist = []
-    for x in range(0, captcha.shape[0]-30):
+    for x in range(0, captcha.shape[0] - 30):
         diffarr = np.average(np.abs(np.subtract(captcha[x:x + 30], puzzle, dtype="int64")), 1)
         diff = np.mean(diffarr)
         # difflist.append(diff)
@@ -429,6 +492,8 @@ def extractdf_id(html):
 
 
 def main():
+    if not os.path.exists(imagesDir):
+        os.makedirs(imagesDir)
     with ThreadPool(processes=len(users)) as pool:
         userlist = [User(u) for u in list(users.items())]
         pool.map(User.work, userlist)
