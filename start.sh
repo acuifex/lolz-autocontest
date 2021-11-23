@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 -u tor_based.py
+python3 -u main.py

@@ -1,4 +1,4 @@
-from traceback_with_variables import Format, ColorSchemes, global_print_exc
+from traceback_with_variables import Format, ColorSchemes, global_print_exc, printing_exc, LoggerAsFile
 from bs4 import BeautifulSoup
 import random
 import string
@@ -243,31 +243,32 @@ class User:
         return found_contest
 
     def work(self):
-        starttime = time.time()
-        found_contest = 0
+        with printing_exc(file_=LoggerAsFile(self.logger)):
+            starttime = time.time()
+            found_contest = 0
 
-        self.logger.debug("work cookies %s", str(self.session.cookies))
-        self.logger.debug("work headers %s", str(self.session.headers))
-        while True:
-            try:
-                self.logger.notice("ip: %s", self.session.get("https://httpbin.org/ip", timeout=6.05).json()["origin"])
-            except requests.Timeout:
-                self.changeproxy()
-                time.sleep(settings.low_time)
-                continue
-            break
+            self.logger.debug("work cookies %s", str(self.session.cookies))
+            self.logger.debug("work headers %s", str(self.session.headers))
+            while True:
+                try:
+                    self.logger.notice("ip: %s", self.session.get("https://httpbin.org/ip", timeout=6.05).json()["origin"])
+                except requests.Timeout:
+                    self.changeproxy()
+                    time.sleep(settings.low_time)
+                    continue
+                break
 
-        while True:
-            self.logger.info("loop at %.2f seconds", time.time() - starttime)
+            while True:
+                self.logger.info("loop at %.2f seconds", time.time() - starttime)
 
-            if self.solvepage():
-                found_contest = settings.found_count
+                if self.solvepage():
+                    found_contest = settings.found_count
 
-            if found_contest > 0:
-                found_contest -= 1
-                time.sleep(settings.low_time)
-            else:
-                time.sleep(settings.high_time)
+                if found_contest > 0:
+                    found_contest -= 1
+                    time.sleep(settings.low_time)
+                else:
+                    time.sleep(settings.high_time)
 
     def __init__(self, parameters):
         self.session = requests.session()
