@@ -226,6 +226,8 @@ class User:
             self.logger.verbose("for %s using solver %s", captchaType, type(solver).__name__)
 
             participateParams = solver.solve(divcaptcha)
+            if participateParams is None:
+                continue
 
             self.logger.debug("waiting for participation...")
             response = self.participate(str(thrid), csrf, participateParams)
