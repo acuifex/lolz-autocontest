@@ -6,6 +6,7 @@
 /venv/
 /.idea/
 /__pycache__/
+/ErrorImages/
 
 # файлы самого лолза. для собственна всякой хуеты
 /lolz files/
