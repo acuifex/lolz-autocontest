@@ -245,7 +245,7 @@ class User:
         return found_contest
 
     def work(self):
-        with printing_exc(file_=LoggerAsFile(self.logger)):
+        with printing_exc(file_=LoggerAsFile(self.logger), fmt=fmterr):
             starttime = time.time()
             found_contest = 0
 

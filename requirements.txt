@@ -1,6 +1,7 @@
 eventlet
 beautifulsoup4
 requests
+urllib3>=1.26.0 # for https proxies. you don't want to know how i figured that one out
 pysocks
 colorama
 Pillow-SIMD
