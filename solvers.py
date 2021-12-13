@@ -101,9 +101,9 @@ class SolverSlider2:
         # TODO: somehow fail if solutionResponse is 0?
         self.puser.logger.verbose("send solution response is: %d", solutionResponse)
         if settings.save_error_images and solutionResponse == 0:
-            with open(settings.imagesDir + '{0:X}_{0:d}_captcha.png'.format(datahash, y), 'wb') as file:
+            with open(settings.imagesDir + '{:X}_{:d}_captcha.png'.format(datahash, y), 'wb') as file:
                 file.write(captcha)
-            with open(settings.imagesDir + '{0:X}_{0:d}_puzzle.png'.format(datahash, y), 'wb') as file:
+            with open(settings.imagesDir + '{:X}_{:d}_puzzle.png'.format(datahash, y), 'wb') as file:
                 file.write(puzzle)
 
         return {
