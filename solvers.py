@@ -128,17 +128,22 @@ class SolverSlider2:
         #
         # w = np.asarray(img)
         # w = w.sum(axis=0)
-        # w = w * ( 255 / w.max())
-        # w = w.reshape((1, 300, 3))
+        # w = w * (255 / w.max())
+        # w = w.reshape((1, w.shape[0], 3))
         # img2 = Image.fromarray(w.astype(np.uint8))
         # img2.show()
 
-        puzzle = np.asarray(Image.open(io.BytesIO(puzzle)).convert("RGB")).sum(axis=0)
+        puzzle = Image.open(io.BytesIO(puzzle)).convert("RGBA")
+        mask = (np.asarray(puzzle.getchannel("A")) / 255).mean(axis=0)
+        puzzle = np.asarray(puzzle.convert("RGB")).sum(axis=0)
+
         bestx = 0
         leastdiff = 2147483647  # basically maxint, 999999 would work too but meh
         # difflist = []
+        # TODO: move all of this crap to opencv matchTemplate because i'm basically remaking what was already done.
         for x in range(0, captcha.shape[0] - 30):
-            diffarr = np.average(np.abs(np.subtract(captcha[x:x + 30], puzzle, dtype="int64")), 1)
+            diffarr = np.average(np.square(
+                np.multiply(np.subtract(captcha[x:x + 30], puzzle, dtype="int64"), mask.reshape((mask.size, 1)))), 1)
             diff = np.mean(diffarr)
             # difflist.append(diff)
             if diff < leastdiff:
@@ -148,9 +153,11 @@ class SolverSlider2:
 
         # asfd = np.array(difflist)
         # asfd = asfd - asfd.min()
-        # asfd = asfd * ( 255 / asfd.max())
-        # asfd = asfd.reshape((1, 270))
+        # asfd = asfd * (255 / asfd.max())
+        # asfd = asfd.reshape((1, asfd.shape[0]))
         # img2 = Image.fromarray(asfd.astype(np.uint8))
+        # img2 = img2.convert("RGB")
+        # img2.putpixel((bestx, 0), (255, 0, 0))
         # img2.show()
 
         return bestx, leastdiff

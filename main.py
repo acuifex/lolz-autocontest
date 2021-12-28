@@ -1,3 +1,4 @@
+import urllib3.exceptions
 from traceback_with_variables import Format, ColorSchemes, global_print_exc, printing_exc, LoggerAsFile
 from bs4 import BeautifulSoup
 import random
@@ -79,6 +80,8 @@ class User:
                     self.changeproxy()
                 except requests.ConnectionError:
                     self.logger.warning("%s ConnectionError", url)
+                except urllib3.exceptions.SSLError as e:
+                    self.logger.warning("%s SSLError (timeout?): %s", url, str(e))
                 time.sleep(settings.low_time)
                 continue
             else:
