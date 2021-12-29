@@ -11,11 +11,8 @@
       ]
     }
   },
-  "use_proxy": true,
-  "_comment": "types are: 1 - tor, 2 - individual proxies, 3 - global proxies (todo), other numbers will disable proxy",
   "proxy_type": 1,
   "lolz_domain": "lolz.guru",
-  "_comment": "this currently only works for slider captchas",
   "save_error_images": true,
   "found_count": 8,
   "low_time": 5,
