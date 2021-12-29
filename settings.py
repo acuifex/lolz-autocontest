@@ -6,7 +6,6 @@ f = open('settings.json')
 data = json.load(f)
 imagesDir = "ErrorImages/"
 users = data["users"]
-proxy_enabled = data["use_proxy"]
 save_error_images = data["save_error_images"]
 lolzdomain = data["lolz_domain"]
 lolzUrl = "https://" + lolzdomain + "/"

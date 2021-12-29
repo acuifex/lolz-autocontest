@@ -125,7 +125,7 @@ class User:
         return False
 
     def changeproxy(self):
-        if not settings.proxy_enabled:
+        if settings.proxy_type == 0:
             return
 
         if settings.proxy_type == 1:
@@ -288,6 +288,7 @@ class User:
 
         self.session.headers.update(
             {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0"})
+        # TODO: move cookies into their own section so we don't have to do this
         for key, value in parameters[1].items():
             if key == "User-Agent":
                 self.session.headers.update({"User-Agent": value})
@@ -305,7 +306,7 @@ class User:
                 self.proxy_pool = value
                 self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
 
-        if settings.proxy_enabled and settings.proxy_type == 2:  # dumbass user check
+        if settings.proxy_type == 2:
             if not hasattr(self, 'proxy_pool'):
                 raise Exception("%s doesn't have proxy_pool set" % self.username)
             if self.proxy_pool_len == 0:
