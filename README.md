@@ -93,6 +93,7 @@
 
 # Разные мемусы
 
+* ![](https://i.imgur.com/0x6tQS2.png)
 * ![](https://i.imgur.com/gny8CLz.png)
 * ![](https://i.imgur.com/OXg6MzD.png)
 * ![](https://i.imgur.com/O54NEHp.png)
