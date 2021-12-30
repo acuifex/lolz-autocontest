@@ -1,3 +1,5 @@
+[![Gitter](https://badges.gitter.im/lolz-autocontest/community.svg)](https://gitter.im/lolz-autocontest/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+
 ## Преимущества
 - Работает без эмуляции браузера
 - Работает без нейронных сетей с примерно 95% правильных решений
