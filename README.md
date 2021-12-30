@@ -25,7 +25,7 @@
 
 # Установка и запуск
 
-###ubuntu
+### ubuntu
 1. Скачиваем и устанавливаем python3, pip3 и git `sudo apt install python3 python3-pip git`
 1. Устанавливаем и запускаем тор `sudo apt install tor; sudo systemctl start tor` (Опционально но черезвычайно рекомендую т.к. айпишники банят)
 1. Скачиваем и переходим в репозиторий `git clone https://github.com/acuifex/lolz-autocontest; cd lolz-autocontest`
