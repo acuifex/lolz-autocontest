@@ -80,6 +80,7 @@ class User:
                     self.changeproxy()
                 except requests.ConnectionError:
                     self.logger.warning("%s ConnectionError", url)
+                    self.changeproxy()
                 except urllib3.exceptions.SSLError as e:
                     self.logger.warning("%s SSLError (timeout?): %s", url, str(e))
                 time.sleep(settings.low_time)
