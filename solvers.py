@@ -6,12 +6,77 @@ import io
 import mmh3
 import struct
 import base64
+import time
+import random
 
 import settings
 
 pattern_captcha_sid = re.compile(r"sid\s*:\s*'([0-9a-f]{32})'", re.MULTILINE)
 pattern_captcha_dot = re.compile(r'XenForo.ClickCaptcha.dotSize\s*=\s*(\d+);', re.MULTILINE)
 pattern_captcha_img = re.compile(r'XenForo.ClickCaptcha.imgData\s*=\s*"([A-Za-z0-9+/=]+)";', re.MULTILINE)
+
+# TODO: make like an actual random path generator so it's even more realistic
+slider_path = ((0x02, 0x0000022A, 0x0000011E, 0),
+               (0x02, 0x0000022A, 0x000000E2, 12),
+               (0x02, 0x0000022B, 0x000000D8, 25),
+               (0x02, 0x00000231, 0x000000BD, 38),
+               (0x02, 0x00000238, 0x000000A4, 51),
+               (0x02, 0x0000023C, 0x00000097, 65),
+               (0x02, 0x0000023D, 0x00000093, 77),
+               (0x02, 0x00000237, 0x00000093, 841),
+               (0x02, 0x0000022E, 0x00000092, 853),
+               (0x02, 0x00000226, 0x00000092, 866),
+               (0x02, 0x00000221, 0x00000093, 880),
+               (0x02, 0x0000021D, 0x00000094, 891),
+               (0x02, 0x0000021C, 0x00000094, 904),
+               (0x02, 0x0000021B, 0x00000096, 1039),
+               (0x02, 0x00000219, 0x00000098, 1052),
+               (0x02, 0x00000217, 0x0000009B, 1065),
+               (0x02, 0x00000213, 0x0000009E, 1077),
+               (0x02, 0x0000020D, 0x000000A1, 1092),
+               (0x02, 0x00000205, 0x000000A6, 1104),
+               (0x02, 0x000001FE, 0x000000AB, 1117),
+               (0x02, 0x000001F5, 0x000000AF, 1132),
+               (0x02, 0x000001EE, 0x000000B1, 1145),
+               (0x02, 0x000001E6, 0x000000B5, 1157),
+               (0x02, 0x000001DE, 0x000000B6, 1172),
+               (0x02, 0x000001D9, 0x000000B7, 1183),
+               (0x02, 0x000001D4, 0x000000B9, 1198),
+               (0x02, 0x000001D1, 0x000000BA, 1210),
+               (0x02, 0x000001CE, 0x000000BD, 1224),
+               (0x02, 0x000001C9, 0x000000BE, 1237),
+               (0x02, 0x000001C2, 0x000000C1, 1252),
+               (0x02, 0x000001BA, 0x000000C4, 1264),
+               (0x02, 0x000001B1, 0x000000C7, 1277),
+               (0x02, 0x0000019E, 0x000000CC, 1290),
+               (0x02, 0x00000189, 0x000000D1, 1303),
+               (0x02, 0x0000016E, 0x000000D8, 1317),
+               (0x02, 0x0000014D, 0x000000E0, 1330),
+               (0x02, 0x00000133, 0x000000E4, 1344),
+               (0x02, 0x0000011F, 0x000000E7, 1357),
+               (0x02, 0x00000115, 0x000000E9, 1371),
+               (0x02, 0x0000010E, 0x000000EB, 1385),
+               (0x02, 0x0000010A, 0x000000ED, 1397),
+               (0x02, 0x00000107, 0x000000F0, 1411),
+               (0x02, 0x00000102, 0x000000F5, 1423),
+               (0x02, 0x000000FD, 0x000000F8, 1437),
+               (0x02, 0x000000F5, 0x000000FD, 1451),
+               (0x02, 0x000000ED, 0x00000102, 1466),
+               (0x02, 0x000000E8, 0x00000106, 1478),
+               (0x02, 0x000000E2, 0x00000109, 1491),
+               (0x02, 0x000000E0, 0x0000010C, 1505),
+               (0x02, 0x000000DE, 0x00000110, 1517),
+               (0x02, 0x000000DD, 0x00000112, 1531),
+               (0x02, 0x000000DD, 0x00000114, 1545),
+               (0x02, 0x000000DC, 0x00000116, 1558),
+               (0x02, 0x000000DC, 0x00000117, 1570),
+               (0x02, 0x000000DB, 0x00000117, 1744),
+               (0x02, 0x000000DA, 0x00000117, 1757),
+               (0x02, 0x000000D9, 0x00000116, 1770),
+               (0x02, 0x000000D7, 0x00000116, 1783),
+               (0x02, 0x000000D6, 0x00000115, 1796),
+               (0x02, 0x000000D5, 0x00000115, 1810),
+               (0x00, 0x000000D5, 0x00000115, 1910),)
 
 
 class SolverSlider2:
@@ -50,19 +115,35 @@ class SolverSlider2:
         return y, decrypted[13:13 + imgsize1], decrypted[13 + imgsize1:13 + imgsize1 + imgsize2], datahash
 
     def sendsolution(self, sid: bytes, datahash: int, x: int) -> Union[int, None]:
-        # works without captcha start -> captcha end path but doesn't work without start -> capctha start
-        # ehh whatever it'll look more realistic on the server anyway
-        # TODO: make like an actual random path generator so it's even more realistic
-        tmp = bytes.fromhex(
-            "0288000000AD0100000288000000AE0100000287000000AE0100000287000000AF0100000287000000B00100000287000000B10100000287000000B20100000286000000B30100000286000000B40100000286000000B50100000286000000B60100000286000000B70100000286000000B80100000286000000B90100000286000000BA0100000286000000BB0100000286000000BC0100000286000000BD0100000286000000BE0100000286000000BF0100000285000000C00100000285000000C10100000285000000C20100000285000000C30100000285000000C40100000284000000C40100000284000000C50100000283000000C60100000283000000C70100000283000000C80100000283000000C90100000282000000C90100000282000000CA0100000282000000CB0100000281000000CB0100000281000000CC0100000281000000CD0100000281000000CE0100000281000000CF0100000281000000D00100000281000000D10100000281000000D20100000281000000D30100000281000000D40100000281000000D50100000281000000D60100000281000000D70100000282000000D70100000282000000D80100000282000000D90100000282000000DA0100000281000000DA0100000281000000DB0100000280000000DB010000027F000000DB010000027E000000DB010000027E000000DC010000027D000000DC010000027D000000DD010000027C000000DD010000027B000000DD010000027A000000DD0100000279000000DE0100000278000000DE0100000277000000DE0100000277000000DF010000")
-        tmp += struct.pack("<Bii", 0x00, 119, 481)
+        current_time_ms = int(time.time() * 1000)
+
+        last_entry = list(slider_path[-1])
+        # hardcoded mouse movement is for 1280x1024
+        last_entry[1] = int((last_entry[1] / 1280) * self.puser.monitor_dims[0])
+        last_entry[2] = int((last_entry[2] / 1024) * self.puser.monitor_dims[1])
+
+        tmp = b""
+        for i in slider_path:
+            tmp += struct.pack("<BiiQ", i[0],
+                               int((i[1] / 1280) * self.puser.monitor_dims[0]),
+                               int((i[2] / 1024) * self.puser.monitor_dims[1]),
+                               i[3] + current_time_ms)
+        # total time in ms that the slide is gonna tame
+        total_time = int(random.uniform(1, 2.5) * 1000)  # use random int instead lol?
         for i in range(x):
-            tmp += struct.pack("<Bii", 0x02, 119 + i, 481)
-        tmp += struct.pack("<Bii", 0x01, 119 + x, 481)
+            tmp += struct.pack("<BiiQ",
+                               0x02,
+                               last_entry[1] + i,
+                               last_entry[2],
+                               last_entry[3] + current_time_ms + int((total_time / x) * i) + 100)
+
+        tmp += struct.pack("<BiiQ", 0x01,
+                           last_entry[1] + x,
+                           last_entry[2],
+                           last_entry[3] + current_time_ms + total_time + 200)
         encrypted = self.applyencryption(datahash & 0xffff, tmp)
 
         requestdata = b"hack_me_if_you_can\n" + sid + encrypted
-
         response = self.puser.makerequest("POST", "https://captcha." + settings.lolzdomain + "/captcha",
                                           headers={'referer': "https://lolz.guru/",
                                                    'origin': "https://lolz.guru"}, cookies={}, data=requestdata,
@@ -81,7 +162,8 @@ class SolverSlider2:
         self.puser.logger.debug("sid: %s", sidMatch)
         sid = int(sidMatch, 16).to_bytes(16, byteorder="big")
 
-        captcharesponse = self.requestcaptcha(sid)
+        captcharesponse = self.requestcaptcha(
+            sid + struct.pack("<ii", self.puser.monitor_dims[0], self.puser.monitor_dims[1]))
         if captcharesponse is None:
             return None
 
@@ -162,6 +244,7 @@ class SolverSlider2:
 
         return bestx, leastdiff
 
+
 # mask of a circle. i know that this is suboptimal
 # non gray are required while gray are "optional" if you can say so
 isgray_mask = (
@@ -190,10 +273,10 @@ isgray_mask = (
 total_grays = sum(x.count(True) for x in isgray_mask)
 total_reds = sum(x.count(False) for x in isgray_mask)
 
+
 class SolverHalfCircle:
     def __init__(self, puser):
         self.puser = puser
-
 
     def solve(self, captchaBlockSoup) -> Union[dict, None]:
         captchahash = captchaBlockSoup.find("input", attrs={"name": "captcha_hash"}).get("value")

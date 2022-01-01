@@ -287,29 +287,18 @@ class User:
                             milliseconds=True, level='DEBUG', logger=self.logger)
         self.logger.debug("user parameters %s", parameters)
 
-        self.session.headers.update(
-            {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:84.0) Gecko/20100101 Firefox/84.0"})
-        # TODO: move cookies into their own section so we don't have to do this
-        for key, value in parameters[1].items():
-            if key == "User-Agent":
-                self.session.headers.update({"User-Agent": value})
-            if key == "df_id":
-                self.session.cookies.set_cookie(requests.cookies.create_cookie(
-                    domain="." + settings.lolzdomain,
-                    name=key,
-                    value=value))
-            if key in ["xf_user", "xf_tfa_trust"]:
-                self.session.cookies.set_cookie(requests.cookies.create_cookie(
-                    domain=settings.lolzdomain,
-                    name=key,
-                    value=value))
-            if key == "proxy_pool":
-                self.proxy_pool = value
-                self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
+        self.monitor_dims = (parameters[1]["monitor_size_x"], parameters[1]["monitor_size_y"])
+
+        self.session.headers.update({"User-Agent": parameters[1]["User-Agent"]})
+        for key, value in parameters[1]["cookies"].items():
+            self.session.cookies.set_cookie(requests.cookies.create_cookie(
+                domain="." + settings.lolzdomain,
+                name=key,
+                value=value))
 
         if settings.proxy_type == 2:
-            if not hasattr(self, 'proxy_pool'):
-                raise Exception("%s doesn't have proxy_pool set" % self.username)
+            self.proxy_pool = parameters[1]["proxy_pool"]
+            self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
             if self.proxy_pool_len == 0:
                 raise Exception("%s has empty proxy_pool" % self.username)
 
