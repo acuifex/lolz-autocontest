@@ -1,5 +1,5 @@
-[![Gitter](https://badges.gitter.im/lolz-autocontest/community.svg)](https://gitter.im/lolz-autocontest/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 ## Обновления
+Вступайте в чатик гиттера [![Gitter](https://badges.gitter.im/lolz-autocontest/community.svg)](https://gitter.im/lolz-autocontest/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) там я буду писать о прогрессе по обновлениям и там можно говорить слова с людьми
 * (2022-1-2) Появилась новая зависимость в requirements.txt, не забудьте установить пакеты
 * (2022-1-1) Последнее обновление изменило вид настроек, не забудьте их изменить
 
