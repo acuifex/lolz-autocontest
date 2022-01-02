@@ -11,3 +11,4 @@ coloredlogs
 verboselogs
 numpy
 mmh3
+pycryptodome

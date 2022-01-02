@@ -16,6 +16,7 @@ import verboselogs
 from logging.handlers import RotatingFileHandler
 import sys
 import os
+from Crypto.Cipher import AES
 
 import settings
 import solvers
@@ -106,24 +107,29 @@ class User:
 
     def checkforjsandfix(self, soup):
         noscript = soup.find("noscript")
-        if noscript:
-            pstring = noscript.find("p")
-            if pstring and pstring.string == "Please enable JavaScript and Cookies in your browser.":
-                self.logger.verbose("lolz asks to complete js task")
+        if not noscript:
+            return False
+        pstring = noscript.find("p")
+        if not (pstring and pstring.string == "Oops! Please enable JavaScript and Cookies in your browser."):
+            return False
+        script = soup.find_all("script")
+        if not script:
+            return False
+        if not (script[1].string.startswith('var _0xe1a2=["\\x70\\x75\\x73\\x68","\\x72\\x65\\x70\\x6C\\x61\\x63\\x65","\\x6C\\x65\\x6E\\x67\\x74\\x68","\\x63\\x6F\\x6E\\x73\\x74\\x72\\x75\\x63\\x74\\x6F\\x72","","\\x30","\\x74\\x6F\\x4C\\x6F\\x77\\x65\\x72\\x43\\x61\\x73\\x65"];function ') \
+                and script[0].get("src") == '/aes.js'):
+            return False
 
-                resp = self.makerequest("GET",
-                                        settings.lolzUrl + "process-qv9ypsgmv9.js",
-                                        timeout_eventlet=15, timeout=12.05, retries=3)
-                if resp is None:
-                    return True
+        self.logger.verbose("lolz asks to complete aes task")
 
-                df_idvalue = extractdf_id(resp.text)
-                self.logger.debug("PoW answer %s", str(df_idvalue))
-                self.session.cookies.set_cookie(requests.cookies.create_cookie(domain="." + settings.lolzdomain,
-                                                                               name='df_id',
-                                                                               value=df_idvalue.decode("ascii")))
-                return True  # should retry
-        return False
+        value_encrypted = re.search(r"slowAES.decrypt\(toNumbers\(\"([0-9a-f]{32})\"\)", script[1].string).group(1)
+        cipher = AES.new(bytearray.fromhex("e9df592a0909bfa5fcff1ce7958e598b"), AES.MODE_CBC, bytearray.fromhex("5d10aa76f4aed1bdf3dbb302e8863d52"))
+        value = cipher.decrypt(bytearray.fromhex(value_encrypted)).hex()
+        self.logger.debug("PoW answer %s", str(value))
+        self.session.cookies.set_cookie(requests.cookies.create_cookie(domain="." + settings.lolzdomain,
+                                                                       name='df_uid',
+                                                                       value=value))
+        return True  # should retry
+
 
     def changeproxy(self):
         if settings.proxy_type == 0:
@@ -340,11 +346,6 @@ class User:
             raise
 
         return parsed
-
-
-def extractdf_id(html):
-    return base64.b64decode(
-        re.sub(r"'\+'", "", re.search(r"var _0x2ef7=\[[A-Za-z0-9+/=',]*','([A-Za-z0-9+/=']*?)'];", html).group(1)))
 
 
 def main():
