@@ -12,3 +12,5 @@ verboselogs
 numpy
 mmh3
 pycryptodome
+noise
+vectormath

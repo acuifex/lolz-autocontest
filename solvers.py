@@ -8,6 +8,8 @@ import struct
 import base64
 import time
 import random
+from noise import pnoise1
+import vectormath as vmath
 
 import settings
 
@@ -15,73 +17,40 @@ pattern_captcha_sid = re.compile(r"sid\s*:\s*'([0-9a-f]{32})'", re.MULTILINE)
 pattern_captcha_dot = re.compile(r'XenForo.ClickCaptcha.dotSize\s*=\s*(\d+);', re.MULTILINE)
 pattern_captcha_img = re.compile(r'XenForo.ClickCaptcha.imgData\s*=\s*"([A-Za-z0-9+/=]+)";', re.MULTILINE)
 
-# TODO: make like an actual random path generator so it's even more realistic
-slider_path = ((0x02, 0x0000022A, 0x0000011E, 0),
-               (0x02, 0x0000022A, 0x000000E2, 12),
-               (0x02, 0x0000022B, 0x000000D8, 25),
-               (0x02, 0x00000231, 0x000000BD, 38),
-               (0x02, 0x00000238, 0x000000A4, 51),
-               (0x02, 0x0000023C, 0x00000097, 65),
-               (0x02, 0x0000023D, 0x00000093, 77),
-               (0x02, 0x00000237, 0x00000093, 841),
-               (0x02, 0x0000022E, 0x00000092, 853),
-               (0x02, 0x00000226, 0x00000092, 866),
-               (0x02, 0x00000221, 0x00000093, 880),
-               (0x02, 0x0000021D, 0x00000094, 891),
-               (0x02, 0x0000021C, 0x00000094, 904),
-               (0x02, 0x0000021B, 0x00000096, 1039),
-               (0x02, 0x00000219, 0x00000098, 1052),
-               (0x02, 0x00000217, 0x0000009B, 1065),
-               (0x02, 0x00000213, 0x0000009E, 1077),
-               (0x02, 0x0000020D, 0x000000A1, 1092),
-               (0x02, 0x00000205, 0x000000A6, 1104),
-               (0x02, 0x000001FE, 0x000000AB, 1117),
-               (0x02, 0x000001F5, 0x000000AF, 1132),
-               (0x02, 0x000001EE, 0x000000B1, 1145),
-               (0x02, 0x000001E6, 0x000000B5, 1157),
-               (0x02, 0x000001DE, 0x000000B6, 1172),
-               (0x02, 0x000001D9, 0x000000B7, 1183),
-               (0x02, 0x000001D4, 0x000000B9, 1198),
-               (0x02, 0x000001D1, 0x000000BA, 1210),
-               (0x02, 0x000001CE, 0x000000BD, 1224),
-               (0x02, 0x000001C9, 0x000000BE, 1237),
-               (0x02, 0x000001C2, 0x000000C1, 1252),
-               (0x02, 0x000001BA, 0x000000C4, 1264),
-               (0x02, 0x000001B1, 0x000000C7, 1277),
-               (0x02, 0x0000019E, 0x000000CC, 1290),
-               (0x02, 0x00000189, 0x000000D1, 1303),
-               (0x02, 0x0000016E, 0x000000D8, 1317),
-               (0x02, 0x0000014D, 0x000000E0, 1330),
-               (0x02, 0x00000133, 0x000000E4, 1344),
-               (0x02, 0x0000011F, 0x000000E7, 1357),
-               (0x02, 0x00000115, 0x000000E9, 1371),
-               (0x02, 0x0000010E, 0x000000EB, 1385),
-               (0x02, 0x0000010A, 0x000000ED, 1397),
-               (0x02, 0x00000107, 0x000000F0, 1411),
-               (0x02, 0x00000102, 0x000000F5, 1423),
-               (0x02, 0x000000FD, 0x000000F8, 1437),
-               (0x02, 0x000000F5, 0x000000FD, 1451),
-               (0x02, 0x000000ED, 0x00000102, 1466),
-               (0x02, 0x000000E8, 0x00000106, 1478),
-               (0x02, 0x000000E2, 0x00000109, 1491),
-               (0x02, 0x000000E0, 0x0000010C, 1505),
-               (0x02, 0x000000DE, 0x00000110, 1517),
-               (0x02, 0x000000DD, 0x00000112, 1531),
-               (0x02, 0x000000DD, 0x00000114, 1545),
-               (0x02, 0x000000DC, 0x00000116, 1558),
-               (0x02, 0x000000DC, 0x00000117, 1570),
-               (0x02, 0x000000DB, 0x00000117, 1744),
-               (0x02, 0x000000DA, 0x00000117, 1757),
-               (0x02, 0x000000D9, 0x00000116, 1770),
-               (0x02, 0x000000D7, 0x00000116, 1783),
-               (0x02, 0x000000D6, 0x00000115, 1796),
-               (0x02, 0x000000D5, 0x00000115, 1810),
-               (0x00, 0x000000D5, 0x00000115, 1910),)
-
 
 class SolverSlider2:
     def __init__(self, puser):
         self.puser = puser
+
+    # makes curved line with perlin noise. doesn't include the end position
+    # TODO: maybe move this out of the class definition?
+    def makeline(self,
+                 start_pos: vmath.Vector2,
+                 end_pos: vmath.Vector2,
+                 move_time_ms: int,
+                 amplitude,
+                 time_offset_ms: int) -> list:
+        out_arr = []
+        # // is int division aka division for normal people
+        step_count = move_time_ms // 15
+        dir = end_pos - start_pos
+        # vmath.Vector2 is used to make a copy. normalize modifies the instance
+        dir_norm = vmath.Vector2(dir).normalize()
+        # vector rotated by 90 degrees
+        dir_norm_rot = vmath.Vector2(dir_norm.y, -dir_norm.x)
+        step_length = dir.length / step_count
+        # a hack to make "random" paths.
+        perlin_base = random.randint(0, 1000)
+
+        for i in range(step_count):
+            pos = start_pos + dir_norm * step_length * i
+            noise = pnoise1(i / step_count, 2, lacunarity=2.5, persistence=0.2, base=perlin_base)
+            # apply noise sideways to the path
+            pos += dir_norm_rot * noise * amplitude
+            # +- 2 ms for slight realism, lolz also has that
+            out_arr.append([0x02, pos, time_offset_ms + i * 15 + random.randint(-2, 2)])
+
+        return out_arr
 
     def applyencryption(self, key: int, data: bytes) -> bytes:
         out = io.BytesIO()
@@ -117,30 +86,36 @@ class SolverSlider2:
     def sendsolution(self, sid: bytes, datahash: int, x: int) -> Union[int, None]:
         current_time_ms = int(time.time() * 1000)
 
-        last_entry = list(slider_path[-1])
-        # hardcoded mouse movement is for 1280x1024
-        last_entry[1] = int((last_entry[1] / 1280) * self.puser.monitor_dims[0])
-        last_entry[2] = int((last_entry[2] / 1024) * self.puser.monitor_dims[1])
+        # approximate positions of different points of interest
+        start_pos = vmath.Vector2(random.randint(int(0.25 * self.puser.monitor_dims[0]), int(0.75 * self.puser.monitor_dims[0])),
+                                  random.randint(int(0.05 * self.puser.monitor_dims[1]), int(0.45 * self.puser.monitor_dims[1])))
+        captcha_pos = vmath.Vector2(random.randint(int(0.1 * self.puser.monitor_dims[0]), int(0.2 * self.puser.monitor_dims[0])),
+                                    random.randint(int(0.4 * self.puser.monitor_dims[1]), int(0.75 * self.puser.monitor_dims[1])))
+        end_pos = vmath.Vector2(captcha_pos.x + x,
+                                captcha_pos.y + random.randint(-5, 5))
+        monitor_length = vmath.Vector2(self.puser.monitor_dims[0], self.puser.monitor_dims[1]).length
+
+        # 0.075 and 0.0375 are chosen arbitrarily. maybe scale them with path length too?
+        start_captcha_path = self.makeline(start_pos,
+                                           captcha_pos,
+                                           random.randint(500, 1000),
+                                           0.075 * monitor_length,
+                                           current_time_ms)
+        captha_end_path = self.makeline(captcha_pos,
+                                        end_pos,
+                                        random.randint(500, 1000),
+                                        0.0375 * monitor_length,
+                                        start_captcha_path[-1][2] + random.randint(100, 200))
+        captha_end_path[0][0] = 0x00
+        slider_path = start_captcha_path + captha_end_path + [[0x01, end_pos, captha_end_path[-1][2] + random.randint(100, 500)]]
 
         tmp = b""
         for i in slider_path:
             tmp += struct.pack("<BiiQ", i[0],
-                               int((i[1] / 1280) * self.puser.monitor_dims[0]),
-                               int((i[2] / 1024) * self.puser.monitor_dims[1]),
-                               i[3] + current_time_ms)
-        # total time in ms that the slide is gonna tame
-        total_time = int(random.uniform(1, 2.5) * 1000)  # use random int instead lol?
-        for i in range(x):
-            tmp += struct.pack("<BiiQ",
-                               0x02,
-                               last_entry[1] + i,
-                               last_entry[2],
-                               last_entry[3] + current_time_ms + int((total_time / x) * i) + 100)
+                               int(i[1].x),
+                               int(i[1].y),
+                               i[2])
 
-        tmp += struct.pack("<BiiQ", 0x01,
-                           last_entry[1] + x,
-                           last_entry[2],
-                           last_entry[3] + current_time_ms + total_time + 200)
         encrypted = self.applyencryption(datahash & 0xffff, tmp)
 
         requestdata = b"hack_me_if_you_can\n" + sid + encrypted
