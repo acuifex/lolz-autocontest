@@ -7,7 +7,6 @@ import eventlet
 from typing import Union
 from urllib.parse import quote
 from multiprocessing.pool import ThreadPool
-import base64
 import re
 import json
 import time
@@ -66,28 +65,24 @@ class User:
                     retries=1,
                     **kwargs) -> Union[requests.Response, None]:
         for i in range(0, retries):
-            timeoutobj = eventlet.Timeout(timeout_eventlet)
             try:
-                resp = self.session.request(method, url, **kwargs)
-            except:
-                timeoutobj.cancel()
-                try:
-                    raise
-                except requests.Timeout:
-                    self.logger.warning("%s requests timeout", url)
-                    self.changeproxy()
-                except eventlet.Timeout:
-                    self.logger.warning("%s eventlet timeout", url)
-                    self.changeproxy()
-                except requests.ConnectionError:
-                    self.logger.warning("%s ConnectionError", url)
-                    self.changeproxy()
-                except urllib3.exceptions.SSLError as e:
-                    self.logger.warning("%s SSLError (timeout?): %s", url, str(e))
+                resp = eventlet.timeout.with_timeout(timeout_eventlet, self.session.request, method, url, **kwargs)
+            except requests.Timeout:
+                self.logger.warning("%s requests timeout", url)
+                self.changeproxy()
                 time.sleep(settings.low_time)
-                continue
+            except eventlet.Timeout:
+                self.logger.warning("%s eventlet timeout", url)
+                self.changeproxy()
+                time.sleep(settings.low_time)
+            except requests.ConnectionError:
+                self.logger.warning("%s ConnectionError", url)
+                self.changeproxy()
+                time.sleep(settings.low_time)
+            except urllib3.exceptions.SSLError as e:
+                self.logger.warning("%s SSLError (timeout?): %s", url, str(e))
+                time.sleep(settings.low_time)
             else:
-                timeoutobj.cancel()
                 try:
                     resp.raise_for_status()
                 except requests.HTTPError:
@@ -115,7 +110,7 @@ class User:
         script = soup.find_all("script")
         if not script:
             return False
-        if not (script[1].string.startswith('var _0xe1a2=["\\x70\\x75\\x73\\x68","\\x72\\x65\\x70\\x6C\\x61\\x63\\x65","\\x6C\\x65\\x6E\\x67\\x74\\x68","\\x63\\x6F\\x6E\\x73\\x74\\x72\\x75\\x63\\x74\\x6F\\x72","","\\x30","\\x74\\x6F\\x4C\\x6F\\x77\\x65\\x72\\x43\\x61\\x73\\x65"];function ') \
+        if not (script[1].string.startswith('var _0xe1a2=["\\x70\\x75\\x73\\x68","\\x72\\x65\\x70\\x6C\\x61\\x63\\x65","\\x6C\\x65\\x6E\\x67\\x74\\x68","\\x63\\x6F\\x6E\\x73\\x74\\x72\\x75\\x63\\x74\\x6F\\x72","","\\x30","\\x74\\x6F\\x4C\\x6F\\x77\\x65\\x72\\x43\\x61\\x73\\x65"];function ')
                 and script[0].get("src") == '/aes.js'):
             return False
 
@@ -129,7 +124,6 @@ class User:
                                                                        name='df_uid',
                                                                        value=value))
         return True  # should retry
-
 
     def changeproxy(self):
         if settings.proxy_type == 0:
