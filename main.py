@@ -161,7 +161,7 @@ class User:
 
         contestList = contestlistsoup.find("div", class_="discussionListItems")
         if contestList is None:
-            self.logger.critical("%s", contestlistsoup.text)
+            self.logger.critical("%s", str(contestlistsoup))
             self.logger.critical("couldn't find discussionListItems. Exiting...")
             raise RuntimeError
 
@@ -204,15 +204,15 @@ class User:
 
             script = contestSoup.find("script", text=pattern_csrf)
             if script is None:
-                self.logger.error("%s", contestSoup.text)
+                self.logger.error("%s", str(contestSoup))
                 self.logger.error("no csrf token!")
-                continue
+                raise RuntimeError
 
             csrf = pattern_csrf.search(script.string).group(1)
             if not csrf:
-                self.logger.critical("%s", contestSoup.text)
+                self.logger.critical("%s", str(contestSoup))
                 self.logger.critical("csrf token is empty. dead cookies? FIXME!!!")
-                continue
+                raise RuntimeError
             self.logger.debug("csrf: %s", str(csrf))
 
             divcaptcha = contestSoup.find("div", class_="captchaBlock")
