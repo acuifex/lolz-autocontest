@@ -91,7 +91,9 @@ class SolverSlider2:
                                   random.randint(int(0.05 * self.puser.monitor_dims[1]), int(0.45 * self.puser.monitor_dims[1])))
         captcha_pos = vmath.Vector2(random.randint(int(0.1 * self.puser.monitor_dims[0]), int(0.2 * self.puser.monitor_dims[0])),
                                     random.randint(int(0.4 * self.puser.monitor_dims[1]), int(0.75 * self.puser.monitor_dims[1])))
-        end_pos = vmath.Vector2(captcha_pos.x + x,
+        # + 0.01 is needed so we don't make the end pos in the exact same spot.
+        # you can't normalize a vector of length 0
+        end_pos = vmath.Vector2(captcha_pos.x + x + 0.01,
                                 captcha_pos.y + random.randint(-5, 5))
         monitor_length = vmath.Vector2(self.puser.monitor_dims[0], self.puser.monitor_dims[1]).length
 
