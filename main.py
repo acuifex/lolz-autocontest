@@ -61,7 +61,7 @@ class User:
                     method: str,
                     url,
                     checkforjs=False,
-                    timeout_eventlet=None,
+                    timeout_eventlet=15,
                     retries=1,
                     **kwargs) -> Union[requests.Response, None]:
         for i in range(0, retries):
@@ -75,12 +75,16 @@ class User:
                 self.logger.warning("%s eventlet timeout", url)
                 self.changeproxy()
                 time.sleep(settings.low_time)
-            except requests.ConnectionError:
-                self.logger.warning("%s ConnectionError", url)
+            except requests.exceptions.ProxyError as e:
+                self.logger.warning("%s proxy error (%s)", url, e)
                 self.changeproxy()
                 time.sleep(settings.low_time)
             except urllib3.exceptions.SSLError as e:
                 self.logger.warning("%s SSLError (timeout?): %s", url, str(e))
+                time.sleep(settings.low_time)
+            except requests.ConnectionError:
+                self.logger.warning("%s ConnectionError", url)
+                self.changeproxy()
                 time.sleep(settings.low_time)
             else:
                 try:
@@ -162,8 +166,7 @@ class User:
         contestList = contestlistsoup.find("div", class_="discussionListItems")
         if contestList is None:
             self.logger.critical("%s", str(contestlistsoup))
-            self.logger.critical("couldn't find discussionListItems. Exiting...")
-            raise RuntimeError
+            raise RuntimeError("couldn't find discussionListItems.")
 
         threadsList = []
 
@@ -205,14 +208,12 @@ class User:
             script = contestSoup.find("script", text=pattern_csrf)
             if script is None:
                 self.logger.error("%s", str(contestSoup))
-                self.logger.error("no csrf token!")
-                raise RuntimeError
+                raise RuntimeError("no csrf token!")
 
             csrf = pattern_csrf.search(script.string).group(1)
             if not csrf:
                 self.logger.critical("%s", str(contestSoup))
-                self.logger.critical("csrf token is empty. dead cookies? FIXME!!!")
-                raise RuntimeError
+                raise RuntimeError("csrf token is empty. likely bad cookies")
             self.logger.debug("csrf: %s", str(csrf))
 
             divcaptcha = contestSoup.find("div", class_="captchaBlock")
@@ -224,8 +225,7 @@ class User:
 
             solver = self.solvers.get(captchaType)
             if solver is None:
-                self.logger.critical("%s doesn't have a solver. Exiting.", captchaType)
-                raise RuntimeError
+                raise RuntimeError(f"\"{captchaType}\" doesn't have a solver.")
 
             self.logger.verbose("for %s using solver %s", captchaType, type(solver).__name__)
 
@@ -255,14 +255,11 @@ class User:
 
             self.logger.debug("work cookies %s", str(self.session.cookies))
             self.logger.debug("work headers %s", str(self.session.headers))
-            while True:
-                try:
-                    self.logger.notice("ip: %s", self.session.get("https://httpbin.org/ip", timeout=6.05).json()["origin"])
-                except requests.Timeout:
-                    self.changeproxy()
-                    time.sleep(settings.low_time)
-                    continue
-                break
+            ip = self.makerequest("GET", "https://httpbin.org/ip", timeout=12.05, retries=30)
+            if ip:
+                self.logger.notice("ip: %s", ip.json()["origin"])
+            else:
+                raise RuntimeError("Wasn't able to reach httpbin.org in 30 tries. Check your proxies and your internet connection")
 
             while True:
                 self.logger.info("loop at %.2f seconds", time.time() - starttime)
