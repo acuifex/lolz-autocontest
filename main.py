@@ -221,7 +221,14 @@ class User:
                 self.logger.warning("Couldn't get captchaBlock. Lag or contest is over?")
                 continue
 
-            captchaType = divcaptcha.find("input", attrs={"name": "captcha_type"}).get("value")
+            captchatypeobj = divcaptcha.find("input", attrs={"name": "captcha_type"})
+
+            if captchatypeobj is None:
+                self.logger.warning("captcha_type not found. adding to blacklist...")
+                self.blacklist.add(thrid)
+                continue
+
+            captchaType = captchatypeobj.get("value")
 
             solver = self.solvers.get(captchaType)
             if solver is None:
