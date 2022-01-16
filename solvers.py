@@ -265,6 +265,10 @@ class SolverHalfCircle:
 
         img = pattern_captcha_img.search(scriptcaptcha.string).group(1)
         x, y, confidence = self.findCirclePosition(img)
+        if confidence < 180.0:
+            self.puser.logger.verbose("confidence is pretty bad (%.2f < 180.0). let's try again later", confidence)
+            return None
+
         self.puser.logger.debug("solved x,y: %d,%d confidence: %.2f", x, y, confidence)
         return {
             'captcha_hash': captchahash,
