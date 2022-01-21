@@ -147,8 +147,7 @@ class SolverSlider2:
         y, captcha, puzzle, datahash = captcharesponse
         self.puser.logger.debug("hash: %d", datahash)
         if y > 170 or y < 0:
-            self.puser.logger.error("y value from captcha response is invalid: %d", y)
-            return None
+            raise RuntimeError("y value from captcha response is invalid: {}".format(y))
 
         x, diff = self.findPuzzlePosition(captcha, puzzle, y)
         self.puser.logger.debug("solved x,y: %d,%d diff: %.2f", x, y, diff)
@@ -260,8 +259,7 @@ class SolverHalfCircle:
         scriptcaptcha = captchaBlockSoup.find("script")
         dot = int(pattern_captcha_dot.search(scriptcaptcha.string).group(1))
         if dot != 20:
-            self.puser.logger.critical("dotsize isn't 20 but instead is %d. Exiting", dot)
-            raise RuntimeError
+            raise RuntimeError("dotsize isn't 20 but instead is {}".format(dot))
 
         img = pattern_captcha_img.search(scriptcaptcha.string).group(1)
         x, y, confidence = self.findCirclePosition(img)
