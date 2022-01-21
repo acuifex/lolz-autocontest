@@ -253,6 +253,7 @@ class User:
             else:
                 self.logger.error("didn't participate: %s", str(response))
             self.logger.debug("%s", str(response))
+            time.sleep(settings.switch_time)
         return found_contest
 
     def work(self):

@@ -19,5 +19,7 @@
   "save_error_images": true,
   "found_count": 8,
   "low_time": 5,
-  "high_time": 20
+  "high_time": 20,
+  "switch_time": 1,
+  "solve_time": 1
 }
