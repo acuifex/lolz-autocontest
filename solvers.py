@@ -37,6 +37,7 @@ class SolverBrainDeadTest:
         if not answer:
             self.puser.logger.warning("this question doesn't have an answer: %s", question)
             return None
+        time.sleep(settings.solve_time)
         return {
             'captcha_question_answer': answer,
             'captcha_type': "AnswerCaptcha",
@@ -177,6 +178,8 @@ class SolverSlider2:
         x, diff = self.findPuzzlePosition(captcha, puzzle, y)
         self.puser.logger.debug("solved x,y: %d,%d diff: %.2f", x, y, diff)
 
+        time.sleep(settings.solve_time)
+
         solutionResponse = self.sendsolution(sid, datahash, x)
         if solutionResponse is None:
             return None
@@ -293,6 +296,7 @@ class SolverHalfCircle:
             return None
 
         self.puser.logger.debug("solved x,y: %d,%d confidence: %.2f", x, y, confidence)
+        time.sleep(settings.solve_time)
         return {
             'captcha_hash': captchahash,
             'captcha_type': "ClickCaptcha",
