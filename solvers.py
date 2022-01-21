@@ -17,6 +17,31 @@ pattern_captcha_sid = re.compile(r"sid\s*:\s*'([0-9a-f]{32})'", re.MULTILINE)
 pattern_captcha_dot = re.compile(r'XenForo.ClickCaptcha.dotSize\s*=\s*(\d+);', re.MULTILINE)
 pattern_captcha_img = re.compile(r'XenForo.ClickCaptcha.imgData\s*=\s*"([A-Za-z0-9+/=]+)";', re.MULTILINE)
 
+b1g_database = {
+    'Сколько нужно иметь симатий, чтобы стать "Искуственным интеллектом" на форуме? Ответ вводите цифрами': "10000",
+    'Сколько нужно иметь симатий, чтобы стать "Гуру" на форуме? Ответ вводите цифрами': "4000",
+    'Сколько нужно иметь симатий, чтобы стать "Экспертом" на форуме? Ответ вводите цифрами': "1000",
+    'Сколько нужно иметь симатий, чтобы стать "Постояльцем" на форуме? Ответ вводите цифрами': "200",
+    'Сколько нужно иметь симатий, чтобы стать "Местным" на форуме? Ответ вводите цифрами': "20",
+    'Когда кто-то создал интересную и полезную тему, ему выдают префикс "Авторская ..."': "статья",
+    'Когда кто-то нашел баг или уязвимость на форуме, он создает тему в разделе ...': "недочеты",
+}
+
+class SolverBrainDeadTest:
+    def __init__(self, puser):
+        self.puser = puser
+
+    def solve(self, captchaBlockSoup) -> Union[dict, None]:
+        question = captchaBlockSoup.find("div", attrs={"class": "ddText"}).text
+        answer = b1g_database.get(question, None)
+        if not answer:
+            self.puser.logger.warning("this question doesn't have an answer: %s", question)
+            return None
+        return {
+            'captcha_question_answer': answer,
+            'captcha_type': "AnswerCaptcha",
+        }
+
 
 class SolverSlider2:
     def __init__(self, puser):

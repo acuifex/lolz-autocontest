@@ -311,6 +311,7 @@ class User:
         self.solvers = {
             "Slider2Captcha": solvers.SolverSlider2(self),
             "ClickCaptcha": solvers.SolverHalfCircle(self),
+            "AnswerCaptcha": solvers.SolverBrainDeadTest(self),
         }
 
         # kinda a hack to loop trough proxies because python doesn't have static variables
