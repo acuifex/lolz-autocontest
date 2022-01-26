@@ -8,6 +8,7 @@ imagesDir = "ErrorImages/"
 users = data["users"]
 save_error_images = data["save_error_images"]
 lolzdomain = data["lolz_domain"]
+answers_server = data["answers_server"]
 lolzUrl = "https://" + lolzdomain + "/"
 proxy_type = data["proxy_type"]
 found_count = data["found_count"]
@@ -16,3 +17,6 @@ high_time = data["high_time"]
 switch_time = data["switch_time"]
 solve_time = data["solve_time"]
 f.close()
+
+# TODO: this looks very hacky. find a better way
+ExpireBlacklist = dict()

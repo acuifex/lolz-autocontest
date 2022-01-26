@@ -8,6 +8,7 @@ import struct
 import base64
 import time
 import random
+import json
 from noise import pnoise1
 import vectormath as vmath
 
@@ -16,7 +17,47 @@ import settings
 pattern_captcha_sid = re.compile(r"sid\s*:\s*'([0-9a-f]{32})'", re.MULTILINE)
 pattern_captcha_dot = re.compile(r'XenForo.ClickCaptcha.dotSize\s*=\s*(\d+);', re.MULTILINE)
 pattern_captcha_img = re.compile(r'XenForo.ClickCaptcha.imgData\s*=\s*"([A-Za-z0-9+/=]+)";', re.MULTILINE)
+pattern_hint_letter = re.compile(r'Starts with \'(.)\' letter', re.MULTILINE)
 
+
+class SolverAnswers:
+    def __init__(self, puser):
+        self.puser = puser
+
+    def solve(self, captchaBlockSoup, **kwargs) -> Union[dict, None]:
+        question = captchaBlockSoup.find("div", attrs={"class": "ddText"}).text
+        hint = pattern_hint_letter.search(captchaBlockSoup.find("input", attrs={"id": "CaptchaQuestionAnswer"})["placeholder"]).group(1)
+
+        # TODO: add exact threadid search
+        params = {
+            "id": kwargs["id"],
+            "q": question,
+            "l": hint,
+        }
+
+        response = self.puser.makerequest("GET", "https://" + settings.answers_server + "/query.php", params=params,
+                                          timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
+
+        if response is None:
+            return None
+
+        resp = response.json()
+
+        if resp["status"] < 0:
+            self.puser.logger.warning("%d doesn't have an answer. blacklisting for 5 minutes", kwargs["id"])
+            settings.ExpireBlacklist[kwargs["id"]] = time.time() + 300 # TODO: make configurable timeout
+            return None
+        if resp["status"] > 0: # TODO: make this check configurable
+            self.puser.logger.warning("%d %d answer isn't exact. blacklisting for 5 minutes", resp["threadid"], resp["id"])
+            settings.ExpireBlacklist[kwargs["id"]] = time.time() + 300
+            return None
+        self.puser.logger.verbose("using %d %d %d", resp["threadid"], resp["id"], resp["status"])
+
+        time.sleep(settings.solve_time)
+        return {
+            'captcha_question_answer': resp["answer"],
+            'captcha_type': "AnswerCaptcha",
+        }
 
 class SolverSlider2:
     def __init__(self, puser):
@@ -131,7 +172,7 @@ class SolverSlider2:
 
         return int.from_bytes(response.content, byteorder='little')
 
-    def solve(self, captchaBlockSoup) -> Union[dict, None]:
+    def solve(self, captchaBlockSoup, **kwargs) -> Union[dict, None]:
         captchahash = captchaBlockSoup.find("input", attrs={"name": "captcha_hash"}).get("value")
         # TODO: more checks here?
         scriptcaptcha = captchaBlockSoup.find("script")
@@ -256,7 +297,7 @@ class SolverHalfCircle:
     def __init__(self, puser):
         self.puser = puser
 
-    def solve(self, captchaBlockSoup) -> Union[dict, None]:
+    def solve(self, captchaBlockSoup, **kwargs) -> Union[dict, None]:
         captchahash = captchaBlockSoup.find("input", attrs={"name": "captcha_hash"}).get("value")
         scriptcaptcha = captchaBlockSoup.find("script")
         dot = int(pattern_captcha_dot.search(scriptcaptcha.string).group(1))

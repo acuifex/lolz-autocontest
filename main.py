@@ -90,7 +90,7 @@ class User:
                 try:
                     resp.raise_for_status()
                 except requests.HTTPError:
-                    self.logger.warning("%s Lolz down with %s status", url, resp.status_code)
+                    self.logger.warning("%s down with %s status", url, resp.status_code)
                     time.sleep(settings.low_time)
                     continue
 
@@ -180,12 +180,13 @@ class User:
 
         if len(threadsList) == 0:
             return False
-
+        # TODO: make threadsList a list of threadids instead of html objects
+        # also remove all blacklisted threadids before we get to this point
         self.logger.notice("detected %d contests", len(threadsList))
         for contestDiv in threadsList:
             thrid = int(contestDiv.get('id').split('-')[1])
 
-            if thrid in self.blacklist:
+            if thrid in self.blacklist or thrid in settings.ExpireBlacklist:
                 continue
             found_contest = True
             contestName = contestDiv.find("div", class_="discussionListItem--Wrapper") \
@@ -236,7 +237,7 @@ class User:
 
             self.logger.verbose("for %s using solver %s", captchaType, type(solver).__name__)
 
-            participateParams = solver.solve(divcaptcha)
+            participateParams = solver.solve(divcaptcha, id=thrid)
             if participateParams is None:
                 continue
 
@@ -251,6 +252,9 @@ class User:
             if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
                 self.logger.success("successfully participated in %s thread id %s", contestName, thrid)
             else:
+                if captchaType == "AnswerCaptcha": # TODO: this is kina a hack
+                    self.logger.error("%s has wrong answer", thrid)
+                    settings.ExpireBlacklist[thrid] = time.time() + 300000
                 self.logger.error("didn't participate: %s", str(response))
             self.logger.debug("%s", str(response))
             time.sleep(settings.switch_time)
@@ -270,7 +274,10 @@ class User:
                 raise RuntimeError("Wasn't able to reach httpbin.org in 30 tries. Check your proxies and your internet connection")
 
             while True:
-                self.logger.info("loop at %.2f seconds", time.time() - starttime)
+                cur_time = time.time()
+                # remove old entries
+                settings.ExpireBlacklist = {k: v for k, v in settings.ExpireBlacklist.items() if v > cur_time}
+                self.logger.info("loop at %.2f seconds (blacklist size %d)", cur_time - starttime, len(settings.ExpireBlacklist))
 
                 if self.solvepage():
                     found_contest = settings.found_count
@@ -312,6 +319,7 @@ class User:
         self.solvers = {
             "Slider2Captcha": solvers.SolverSlider2(self),
             "ClickCaptcha": solvers.SolverHalfCircle(self),
+            "AnswerCaptcha": solvers.SolverAnswers(self),
         }
 
         # kinda a hack to loop trough proxies because python doesn't have static variables
