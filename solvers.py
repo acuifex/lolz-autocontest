@@ -26,14 +26,16 @@ class SolverAnswers:
 
     def solve(self, captchaBlockSoup, **kwargs) -> Union[dict, None]:
         question = captchaBlockSoup.find("div", attrs={"class": "ddText"}).text
-        hint = pattern_hint_letter.search(captchaBlockSoup.find("input", attrs={"id": "CaptchaQuestionAnswer"})["placeholder"]).group(1)
+        placeholder = captchaBlockSoup.find("input", attrs={"id": "CaptchaQuestionAnswer"})["placeholder"]
 
         # TODO: add exact threadid search
         params = {
             "id": kwargs["id"],
             "q": question,
-            "l": hint,
         }
+
+        if placeholder:
+            params["l"] = pattern_hint_letter.search(placeholder).group(1)
 
         response = self.puser.makerequest("GET", "https://" + settings.answers_server + "/query.php", params=params,
                                           timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
