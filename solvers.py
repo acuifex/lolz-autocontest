@@ -25,6 +25,7 @@ class SolverAnswers:
         self.puser = puser
 
     def solve(self, captchaBlockSoup, **kwargs) -> Union[dict, None]:
+        time.sleep(settings.solve_time)
         question = captchaBlockSoup.find("div", attrs={"class": "ddText"}).text
         placeholder = captchaBlockSoup.find("input", attrs={"id": "CaptchaQuestionAnswer"})["placeholder"]
 
@@ -55,7 +56,6 @@ class SolverAnswers:
             return None
         self.puser.logger.verbose("using %d %d %d", resp["threadid"], resp["id"], resp["status"])
 
-        time.sleep(settings.solve_time)
         return {
             'captcha_question_answer': resp["answer"],
             'captcha_type': "AnswerCaptcha",
@@ -308,12 +308,12 @@ class SolverHalfCircle:
 
         img = pattern_captcha_img.search(scriptcaptcha.string).group(1)
         x, y, confidence = self.findCirclePosition(img)
+        time.sleep(settings.solve_time)
         if confidence < 180.0:
             self.puser.logger.verbose("confidence is pretty bad (%.2f < 180.0). let's try again later", confidence)
             return None
 
         self.puser.logger.debug("solved x,y: %d,%d confidence: %.2f", x, y, confidence)
-        time.sleep(settings.solve_time)
         return {
             'captcha_hash': captchahash,
             'captcha_type': "ClickCaptcha",

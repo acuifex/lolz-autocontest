@@ -192,8 +192,12 @@ class User:
             contestName = contestDiv.find("div", class_="discussionListItem--Wrapper") \
                 .find("a", class_="listBlock main PreviewTooltip") \
                 .find("h3", class_="title").find("span", class_="spanTitle").contents[0]
+            # this is not very nice but should avoid the bug with not sleeping when skipping for some reason
+            time.sleep(settings.switch_time)
 
             self.logger.notice("participating in %s thread id %d", contestName, thrid)
+
+            # TODO: stuff bellow probably should get it's own function
 
             contestResp = self.makerequest("GET",
                                            settings.lolzUrl + "threads/" + str(thrid),
@@ -257,7 +261,6 @@ class User:
                     settings.ExpireBlacklist[thrid] = time.time() + 300000
                 self.logger.error("didn't participate: %s", str(response))
             self.logger.debug("%s", str(response))
-            time.sleep(settings.switch_time)
         return found_contest
 
     def work(self):
