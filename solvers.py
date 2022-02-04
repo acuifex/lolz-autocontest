@@ -39,7 +39,7 @@ class SolverAnswers:
             params["l"] = pattern_hint_letter.search(placeholder).group(1)
 
         response = self.puser.makerequest("GET", "https://" + settings.answers_server + "/query.php", params=params,
-                                          timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
+                                          timeout=12.05, retries=3, checkforjs=False)
 
         if response is None:
             return None
@@ -111,7 +111,7 @@ class SolverSlider2:
         response = self.puser.makerequest("POST", "https://captcha." + settings.lolzdomain + "/captcha",
                                           headers={'referer': "https://lolz.guru/",
                                                    'origin': "https://lolz.guru"}, cookies={}, data=sid,
-                                          timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
+                                          timeout=12.05, retries=3, checkforjs=False)
 
         if response is None:
             return None
@@ -167,7 +167,7 @@ class SolverSlider2:
         response = self.puser.makerequest("POST", "https://captcha." + settings.lolzdomain + "/captcha",
                                           headers={'referer': "https://lolz.guru/",
                                                    'origin': "https://lolz.guru"}, cookies={}, data=requestdata,
-                                          timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=False)
+                                          timeout=12.05, retries=3, checkforjs=False)
 
         if response is None:
             return None

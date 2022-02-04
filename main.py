@@ -3,7 +3,6 @@ from traceback_with_variables import Format, ColorSchemes, global_print_exc, pri
 from bs4 import BeautifulSoup
 import random
 import string
-import eventlet
 from typing import Union
 from urllib.parse import quote
 from multiprocessing.pool import ThreadPool
@@ -27,8 +26,7 @@ fmterr = Format(
 )
 global_print_exc(fmt=fmterr)
 
-# import httpx
-httpx = eventlet.import_patched('httpx')
+import httpx
 
 level_styles = {'debug': {'color': 8},
                 'info': {},
@@ -61,19 +59,14 @@ class User:
                     method: str,
                     url,
                     checkforjs=False,
-                    timeout_eventlet=15,
                     retries=1,
                     **kwargs) -> Union[httpx.Response, None]:
         for i in range(0, retries):
             try:
-                resp = eventlet.timeout.with_timeout(timeout_eventlet, self.session.request, method, url, **kwargs)
+                resp = self.session.request(method, url, **kwargs)
                 resp.raise_for_status()
             except httpx.TimeoutException:
                 self.logger.warning("%s requests timeout", url)
-                self.changeproxy()
-                time.sleep(settings.low_time)
-            except eventlet.Timeout:
-                self.logger.warning("%s eventlet timeout", url)
                 self.changeproxy()
                 time.sleep(settings.low_time)
             except httpx.ProxyError as e:
@@ -157,7 +150,6 @@ class User:
         found_contest = False
         contestListResp = self.makerequest("GET",
                                            settings.lolzUrl + "forums/contests/",
-                                           timeout_eventlet=15,
                                            timeout=12.05,
                                            retries=3,
                                            checkforjs=True)
@@ -205,7 +197,6 @@ class User:
             contestResp = self.makerequest("GET",
                                            settings.lolzUrl + "threads/" + str(thrid) + "/",
                                            retries=3,
-                                           timeout_eventlet=15,
                                            timeout=12.05,
                                            checkforjs=True)
             if contestResp is None:
@@ -342,7 +333,7 @@ class User:
                                         '_xfNoRedirect': 1,
                                         '_xfToken': csrf,
                                         '_xfResponseType': "json",
-                                    }}, timeout_eventlet=15, timeout=12.05, retries=3, checkforjs=True)
+                                    }}, timeout=12.05, retries=3, checkforjs=True)
 
         if response is None:
             return None

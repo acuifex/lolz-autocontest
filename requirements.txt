@@ -1,5 +1,4 @@
 wheel # might help to install mmh3 without microsoft c++ build tools, unconfirmed
-eventlet
 beautifulsoup4
 urllib3>=1.26.0 # for https proxies. you don't want to know how i figured that one out
 pysocks
