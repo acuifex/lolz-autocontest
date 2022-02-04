@@ -30,7 +30,7 @@
 1. Устанавливаем и запускаем тор `sudo apt install tor; sudo systemctl start tor` (Опционально но чрезвычайно рекомендую т.к. айпишники банят)
 1. Скачиваем и переходим в репозиторий `git clone https://github.com/acuifex/lolz-autocontest; cd lolz-autocontest`
 1. Устанавливаем пакеты нужные для работы.
-`pip3 install -r requirements.txt`
+`pip3 install -U -r requirements.txt`
 1. Переименовываем settings.example.json в settings.json и редактируем в соответствии с секцией [Настройки](#Настройки)
 1. Запускаем в заднем фоне `bash ./start-background.sh`
 
@@ -45,7 +45,7 @@
 `cd C:\Path\To\repo` <br>
 место `C:\Path\To\repo` естественно пишем путь к распакованному репозиторию
 1. Устанавливаем пакеты нужные для работы.
-`py -m pip install -r requirements.txt` <br>
+`py -m pip install -U -r requirements.txt` <br>
 1. Переименовываем settings.example.json в settings.json и редактируем в соответствии с секцией [Настройки](#Настройки)
 1. Запускаем `py main.py`
 
