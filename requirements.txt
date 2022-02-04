@@ -1,7 +1,6 @@
 wheel # might help to install mmh3 without microsoft c++ build tools, unconfirmed
 eventlet
 beautifulsoup4
-requests
 urllib3>=1.26.0 # for https proxies. you don't want to know how i figured that one out
 pysocks
 colorama
@@ -14,3 +13,6 @@ mmh3
 pycryptodome
 noise
 vectormath
+socksio # for httpx socks
+httpx
+h2>=3.2.0 # https://stackoverflow.com/a/70338878
