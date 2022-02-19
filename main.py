@@ -113,7 +113,7 @@ class User:
         value = cipher.decrypt(bytearray.fromhex(value_encrypted)).hex()
         self.logger.debug("PoW answer %s", str(value))
         self.session.cookies.set(domain="." + settings.lolzdomain,
-                                 name='df_uid',
+                                 name='rgreg',
                                  value=value)
         return True  # should retry
 
