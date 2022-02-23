@@ -48,6 +48,7 @@ fileHandler = RotatingFileHandler("lolzautocontest.log", maxBytes=1024 * 1024 * 
 fileHandler.setFormatter(logfmt)
 
 pattern_csrf = re.compile(r'_csrfToken:\s*\"(.*)\",', re.MULTILINE)
+pattern_df_id = re.compile(r'document\.cookie\s*=\s*"([^="]+)="\s*\+\s*toHex\(slowAES\.decrypt\(toNumbers\(\"([0-9a-f]{32})\"\)', re.MULTILINE)
 
 
 # consoleHandler = logging.StreamHandler(sys.stdout)
@@ -107,13 +108,13 @@ class User:
 
         self.logger.verbose("lolz asks to complete aes task")
 
-        value_encrypted = re.search(r"slowAES.decrypt\(toNumbers\(\"([0-9a-f]{32})\"\)", script[1].string).group(1)
+        match = pattern_df_id.search(script[1].string)
         cipher = AES.new(bytearray.fromhex("e9df592a0909bfa5fcff1ce7958e598b"), AES.MODE_CBC,
                          bytearray.fromhex("5d10aa76f4aed1bdf3dbb302e8863d52"))
-        value = cipher.decrypt(bytearray.fromhex(value_encrypted)).hex()
+        value = cipher.decrypt(bytearray.fromhex(match.group(2))).hex()
         self.logger.debug("PoW answer %s", str(value))
         self.session.cookies.set(domain="." + settings.lolzdomain,
-                                 name='rgreg',
+                                 name=match.group(1),
                                  value=value)
         return True  # should retry
 
