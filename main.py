@@ -1,4 +1,3 @@
-import urllib3.exceptions
 from traceback_with_variables import Format, ColorSchemes, global_print_exc, printing_exc, LoggerAsFile
 from bs4 import BeautifulSoup
 import random
@@ -7,7 +6,6 @@ from typing import Union
 from urllib.parse import quote
 from multiprocessing.pool import ThreadPool
 import re
-import json
 import time
 import coloredlogs
 import verboselogs
@@ -129,7 +127,7 @@ class User:
             newProxy = {'all://': 'socks5://{}@localhost:9050'.format(randstr + ":" + self.username)}
         elif settings.proxy_type == 2:  # these are the moments i wish python had switch cases
             self.current_proxy_number += 1
-            if self.current_proxy_number >= self.proxy_pool_len:
+            if self.current_proxy_number >= len(self.proxy_pool):
                 self.current_proxy_number = 0
             proxy = self.proxy_pool[self.current_proxy_number]
             self.logger.verbose("changing proxy to %s index %d", proxy, self.current_proxy_number)
@@ -143,6 +141,134 @@ class User:
         newSession.headers = self.session.headers
         newSession.cookies = self.session.cookies
         self.session = newSession
+
+    def solvegoogle(self, soup, url) -> Union[dict, None]:
+        googletype = soup.find("input", attrs={"name": "googleCaptcha_type"})
+        if googletype is None:
+            raise RuntimeError("google captcha is missing. Something updated probably?")
+        # self.logger.debug("google type: %s", googletype.attrs["value"])
+
+        googlescript = soup.find("script")
+        if googlescript is None:
+            raise RuntimeError("google captcha script is missing. Something updated probably?")
+
+        # v2sitekey = pattern_csrf.search(googlescript.string).group(1)
+        # proxyprotocol, proxy = self.proxy_pool[self.current_proxy_number].split("://", maxsplit=1)
+        params = {
+            'key': settings.anti_captcha_key,
+            'method': "userrecaptcha",
+            'googlekey': settings.lolz_google_key,
+            'pageurl': url,
+            'userAgent': self.session.headers.get("User-Agent"),  # works without this too
+            # 'proxy': proxy,
+            # 'proxytype': proxyprotocol.upper(),  # not sure if upper is necessary.
+            'json': 1
+        }
+        if settings.send_referral_to_creator:
+            params["softguru"] = 109978
+
+        submitresp = self.makerequest("GET", "http://api.captcha.guru/in.php", params=params)
+
+        if submitresp is None:
+            return None
+
+        submit = submitresp.json()
+        self.logger.debug(submit)
+        if submit["status"] == 0:
+            raise RuntimeError("submit was unsuccessful")  # TODO: handle this properly
+
+        while True:
+            time.sleep(5)
+            resp = self.makerequest("GET",
+                                    "http://api.captcha.guru/res.php",
+                                    params={
+                                        'key': settings.anti_captcha_key,
+                                        'action': "get",
+                                        'id': submit["request"],
+                                        'json': 1
+                                    })
+            answer = resp.json()
+            self.logger.debug(answer)
+            if answer["status"] == 0 and answer["request"] == "CAPCHA_NOT_READY":
+                continue
+            elif answer["status"] == 1:
+                return {
+                    "googleCaptcha_type": "recaptcha",
+                    "g-recaptcha-response": answer["request"],
+                }
+            else:
+                raise RuntimeError("unknown state") # TODO: and this too
+
+
+    def solvecontest(self, thrid) -> bool:  # return whether we were successful
+        contestResp = self.makerequest("GET",
+                                       settings.lolzUrl + "threads/" + str(thrid) + "/",
+                                       retries=3,
+                                       timeout=12.05,
+                                       checkforjs=True)
+        if contestResp is None:
+            return False
+
+        contestSoup = BeautifulSoup(contestResp.text, "html.parser")
+
+        script = contestSoup.find("script", text=pattern_csrf)
+        if script is None:
+            self.logger.error("%s", str(contestSoup))
+            raise RuntimeError("no csrf token!")
+
+        csrf = pattern_csrf.search(script.string).group(1)
+        if not csrf:
+            self.logger.critical("%s", str(contestSoup))
+            raise RuntimeError("csrf token is empty. likely bad cookies")
+        self.logger.debug("csrf: %s", str(csrf))
+
+        ContestCaptcha = contestSoup.find("div", class_="ContestCaptcha")
+        if ContestCaptcha is None:
+            self.logger.warning("Couldn't get ContestCaptcha. Lag or contest is over?")
+            return False
+
+        divcaptcha = ContestCaptcha.find("div", class_="captchaBlock")
+        if divcaptcha is None:
+            self.logger.warning("Couldn't get captchaBlock. Lag or contest is over?")
+            return False
+
+        captchatypeobj = divcaptcha.find("input", attrs={"name": "captcha_type"})
+
+        if captchatypeobj is None:
+            self.logger.warning("captcha_type not found. adding to blacklist...")
+            self.blacklist.add(thrid)
+            return False
+
+        captchaType = captchatypeobj.get("value")
+        if captchaType != "AnswerCaptcha":
+            raise RuntimeError("Captcha type changed. bailing out")
+
+        participateParams = self.solver.solve(divcaptcha)
+        if participateParams is None:
+            return False
+
+        googleParams = self.solvegoogle(ContestCaptcha, settings.lolzUrl + "threads/" + str(thrid) + "/")
+        if googleParams is None:
+            self.logger.warning("google captcha response empty")
+            return False
+
+        participateParams.update(googleParams)
+
+        self.logger.info("waiting for participation...")
+        response = self.participate(str(thrid), csrf, participateParams)
+        if response is None:
+            return False
+
+        if "error" in response and response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
+            self.blacklist.add(thrid)
+
+        if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
+            self.logger.debug("%s", str(response))
+            return True
+        else:
+            self.solver.onFailure(response)
+            self.logger.error("didn't participate: %s", str(response))
+            return False
 
     def solvepage(self) -> bool:  # return whether we found any contests or not
         found_contest = False
@@ -181,78 +307,21 @@ class User:
 
             if thrid in self.blacklist or thrid in settings.ExpireBlacklist:
                 continue
+
+            if not self.solver.onBeforeRequest(thrid):
+                continue
+
             found_contest = True
             contestName = contestDiv.find("div", class_="discussionListItem--Wrapper") \
                 .find("a", class_="listBlock main PreviewTooltip") \
                 .find("h3", class_="title").find("span", class_="spanTitle").contents[0]
-            # this is not very nice but should avoid the bug with not sleeping when skipping for some reason
-            time.sleep(settings.switch_time)
 
             self.logger.notice("participating in %s thread id %d", contestName, thrid)
 
-            # TODO: stuff bellow probably should get it's own function
-
-            contestResp = self.makerequest("GET",
-                                           settings.lolzUrl + "threads/" + str(thrid) + "/",
-                                           retries=3,
-                                           timeout=12.05,
-                                           checkforjs=True)
-            if contestResp is None:
-                continue
-
-            contestSoup = BeautifulSoup(contestResp.text, "html.parser")
-
-            script = contestSoup.find("script", text=pattern_csrf)
-            if script is None:
-                self.logger.error("%s", str(contestSoup))
-                raise RuntimeError("no csrf token!")
-
-            csrf = pattern_csrf.search(script.string).group(1)
-            if not csrf:
-                self.logger.critical("%s", str(contestSoup))
-                raise RuntimeError("csrf token is empty. likely bad cookies")
-            self.logger.debug("csrf: %s", str(csrf))
-
-            divcaptcha = contestSoup.find("div", class_="captchaBlock")
-            if divcaptcha is None:
-                self.logger.warning("Couldn't get captchaBlock. Lag or contest is over?")
-                continue
-
-            captchatypeobj = divcaptcha.find("input", attrs={"name": "captcha_type"})
-
-            if captchatypeobj is None:
-                self.logger.warning("captcha_type not found. adding to blacklist...")
-                self.blacklist.add(thrid)
-                continue
-
-            captchaType = captchatypeobj.get("value")
-
-            solver = self.solvers.get(captchaType)
-            if solver is None:
-                raise RuntimeError(f"\"{captchaType}\" doesn't have a solver.")
-
-            self.logger.verbose("for %s using solver %s", captchaType, type(solver).__name__)
-
-            participateParams = solver.solve(divcaptcha, id=thrid)
-            if participateParams is None:
-                continue
-
-            self.logger.debug("waiting for participation...")
-            response = self.participate(str(thrid), csrf, participateParams)
-            if response is None:
-                continue
-
-            if "error" in response and response["error"][0] == 'Вы не можете участвовать в своём розыгрыше.':
-                self.blacklist.add(thrid)
-
-            if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
+            if self.solvecontest(thrid):
                 self.logger.success("successfully participated in %s thread id %s", contestName, thrid)
-            else:
-                if captchaType == "AnswerCaptcha": # TODO: this is kina a hack
-                    self.logger.error("%s has wrong answer", thrid)
-                    settings.ExpireBlacklist[thrid] = time.time() + 300000
-                self.logger.error("didn't participate: %s", str(response))
-            self.logger.debug("%s", str(response))
+
+            time.sleep(settings.switch_time)
         return found_contest
 
     def work(self):
@@ -304,17 +373,12 @@ class User:
 
         if settings.proxy_type == 2:
             self.proxy_pool = parameters[1]["proxy_pool"]
-            self.proxy_pool_len = len(self.proxy_pool)  # cpu cycle savings
-            if self.proxy_pool_len == 0:
+            if len(self.proxy_pool) == 0:
                 raise Exception("%s has empty proxy_pool" % self.username)
 
         self.blacklist = set()
 
-        self.solvers = {
-            "Slider2Captcha": solvers.SolverSlider2(self),
-            "ClickCaptcha": solvers.SolverHalfCircle(self),
-            "AnswerCaptcha": solvers.SolverAnswers(self),
-        }
+        self.solver = solvers.SolverAnswers(self)
 
         # kinda a hack to loop trough proxies because python doesn't have static variables
         self.current_proxy_number = -1  # self.changeproxy adds one to this number
@@ -336,14 +400,7 @@ class User:
         if response is None:
             return None
 
-        try:
-            parsed = json.loads(response.text)
-            self.logger.debug("parsed")
-        except ValueError:
-            self.logger.critical("SOMETHING BAD 2!!\n%s", response.text)
-            raise
-
-        return parsed
+        return response.json()
 
 
 def main():

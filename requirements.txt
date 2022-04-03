@@ -1,17 +1,11 @@
-wheel # might help to install mmh3 without microsoft c++ build tools, unconfirmed
 beautifulsoup4
 urllib3>=1.26.0 # for https proxies. you don't want to know how i figured that one out
 pysocks
 colorama
-Pillow # you can change this to Pillow-SIMD if you want to squeze out a bit of perfomance.
 traceback_with_variables
 coloredlogs
 verboselogs
-numpy
-mmh3
 pycryptodome
-noise
-vectormath
 socksio # for httpx socks
-httpx
+httpx>=0.22.0 # if i'll see an another person with a missing feature from this library, i swear to god, i'll do something bad to him
 h2>=3.2.0 # https://stackoverflow.com/a/70338878
