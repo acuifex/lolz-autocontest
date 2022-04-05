@@ -187,7 +187,7 @@ class User:
                                         'id': submit["request"],
                                         'json': 1
                                     })
-            if submitresp is None:
+            if resp is None:
                 continue
                 
             answer = resp.json()
