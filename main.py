@@ -273,13 +273,20 @@ class User:
             self.logger.error("didn't participate: %s", str(response))
             return False
 
-    def solvepage(self) -> bool:  # return whether we found any contests or not
+    def solvepage(self, csrf) -> bool:  # return whether we found any contests or not
         found_contest = False
-        contestListResp = self.makerequest("GET",
-                                           settings.lolzUrl + "forums/contests/",
+        contestListResp = self.makerequest("POST",
+                                           settings.lolzUrl + "forums/766/",
                                            timeout=12.05,
                                            retries=3,
-                                           checkforjs=True)
+                                           checkforjs=True,
+                                           data={
+                                               'from_sidebar': "true",
+                                               '_xfRequestUri': quote("/"),
+                                               '_xfNoRedirect': 1,
+                                               '_xfToken': csrf,
+                                               '_xfResponseType': "html",
+                                           })
         if contestListResp is None:
             return False
 
@@ -339,6 +346,25 @@ class User:
                 self.logger.notice("ip: %s", ip.json()["origin"])
             else:
                 raise RuntimeError("Wasn't able to reach httpbin.org in 30 tries. Check your proxies and your internet connection")
+            mainPage = self.makerequest("GET",
+                                        settings.lolzUrl,
+                                        timeout=12.05,
+                                        retries=30,
+                                        checkforjs=True)
+            if mainPage is None:
+                raise RuntimeError("There was an issue getting lolz main mage")
+
+            mainPageSoup = BeautifulSoup(mainPage.text, "html.parser")
+
+            script = mainPageSoup.find("script", text=pattern_csrf)
+            if script is None:
+                raise RuntimeError("no csrf token!")
+
+            csrf = pattern_csrf.search(script.string).group(1)
+            if not csrf:
+                raise RuntimeError("csrf token is empty. likely bad cookies")
+            self.logger.debug("csrf: %s", str(csrf))
+
             while True:
                 cur_time = time.time()
                 # remove old entries
@@ -346,7 +372,7 @@ class User:
                 self.logger.info("loop at %.2f seconds (blacklist size %d)", cur_time - starttime,
                                  len(settings.ExpireBlacklist))
 
-                if self.solvepage():
+                if self.solvepage(csrf):
                     found_contest = settings.found_count
 
                 if found_contest > 0:
