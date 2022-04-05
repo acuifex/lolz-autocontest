@@ -187,6 +187,9 @@ class User:
                                         'id': submit["request"],
                                         'json': 1
                                     })
+            if submitresp is None:
+                continue
+                
             answer = resp.json()
             self.logger.debug(answer)
             if answer["status"] == 0 and answer["request"] == "CAPCHA_NOT_READY":
