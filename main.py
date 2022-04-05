@@ -365,8 +365,6 @@ class User:
         coloredlogs.install(fmt=logfmtstr, stream=sys.stdout, level_styles=level_styles,
                             milliseconds=True, level='DEBUG', logger=self.logger)
         self.logger.debug("user parameters %s", parameters)
-
-        self.monitor_dims = (parameters[1]["monitor_size_x"], parameters[1]["monitor_size_y"])
         self.session.headers.update({"User-Agent": parameters[1]["User-Agent"]})
         for key, value in parameters[1]["cookies"].items():
             self.session.cookies.set(
