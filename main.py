@@ -323,7 +323,7 @@ class User:
 
             found_contest = True
             contestName = contestDiv.find("div", class_="discussionListItem--Wrapper") \
-                .find("a", class_="listBlock main PreviewTooltip") \
+                .find("a", class_="listBlock main") \
                 .find("h3", class_="title").find("span", class_="spanTitle").contents[0]
 
             self.logger.notice("participating in %s thread id %d", contestName, thrid)
