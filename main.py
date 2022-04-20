@@ -142,67 +142,6 @@ class User:
         newSession.cookies = self.session.cookies
         self.session = newSession
 
-    def solvegoogle(self, soup, url) -> Union[dict, None]:
-        googletype = soup.find("input", attrs={"name": "googleCaptcha_type"})
-        if googletype is None:
-            raise RuntimeError("google captcha is missing. Something updated probably?")
-        # self.logger.debug("google type: %s", googletype.attrs["value"])
-
-        googlescript = soup.find("script")
-        if googlescript is None:
-            raise RuntimeError("google captcha script is missing. Something updated probably?")
-
-        # v2sitekey = pattern_csrf.search(googlescript.string).group(1)
-        # proxyprotocol, proxy = self.proxy_pool[self.current_proxy_number].split("://", maxsplit=1)
-        params = {
-            'key': settings.anti_captcha_key,
-            'method': "userrecaptcha",
-            'googlekey': settings.lolz_google_key,
-            'pageurl': url,
-            'userAgent': self.session.headers.get("User-Agent"),  # works without this too
-            # 'proxy': proxy,
-            # 'proxytype': proxyprotocol.upper(),  # not sure if upper is necessary.
-            'json': 1
-        }
-        if settings.send_referral_to_creator:
-            params["softguru"] = 109978
-
-        submitresp = self.makerequest("GET", "http://api.captcha.guru/in.php", params=params)
-
-        if submitresp is None:
-            return None
-
-        submit = submitresp.json()
-        self.logger.debug(submit)
-        if submit["status"] == 0:
-            raise RuntimeError("submit was unsuccessful")  # TODO: handle this properly
-
-        while True:
-            time.sleep(5)
-            resp = self.makerequest("GET",
-                                    "http://api.captcha.guru/res.php",
-                                    params={
-                                        'key': settings.anti_captcha_key,
-                                        'action': "get",
-                                        'id': submit["request"],
-                                        'json': 1
-                                    })
-            if resp is None:
-                continue
-                
-            answer = resp.json()
-            self.logger.debug(answer)
-            if answer["status"] == 0 and answer["request"] == "CAPCHA_NOT_READY":
-                continue
-            elif answer["status"] == 1:
-                return {
-                    "googleCaptcha_type": "recaptcha",
-                    "g-recaptcha-response": answer["request"],
-                }
-            else:
-                raise RuntimeError("unknown state") # TODO: and this too
-
-
     def solvecontest(self, thrid) -> bool:  # return whether we were successful
         contestResp = self.makerequest("GET",
                                        settings.lolzUrl + "threads/" + str(thrid) + "/",
@@ -250,13 +189,6 @@ class User:
         if participateParams is None:
             return False
 
-        googleParams = self.solvegoogle(ContestCaptcha, settings.lolzUrl + "threads/" + str(thrid) + "/")
-        if googleParams is None:
-            self.logger.warning("google captcha response empty")
-            return False
-
-        participateParams.update(googleParams)
-
         self.logger.info("waiting for participation...")
         response = self.participate(str(thrid), csrf, participateParams)
         if response is None:
@@ -266,11 +198,10 @@ class User:
             self.blacklist.add(thrid)
 
         if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
-            self.logger.debug("%s", str(response))
+            self.solver.onSuccess(response)
             return True
         else:
             self.solver.onFailure(response)
-            self.logger.error("didn't participate: %s", str(response))
             return False
 
     def solvepage(self, csrf) -> bool:  # return whether we found any contests or not

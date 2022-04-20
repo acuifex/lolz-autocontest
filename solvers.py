@@ -61,5 +61,8 @@ class SolverAnswers:
         }
 
     def onFailure(self, response):
-        self.puser.logger.error("%s has wrong answer", self.id)
+        self.puser.logger.error("%d didn't participate (wrong answer?): %s", self.id, str(response))
         settings.ExpireBlacklist[self.id] = time.time() + 300000
+
+    def onSuccess(self, response):
+        self.puser.logger.debug("%s", str(response))
