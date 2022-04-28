@@ -15,6 +15,7 @@
   "proxy_type": 1,
   "lolz_domain": "lolz.guru",
   "answers_server": "answers.acuifex.ru",
+  "try_questions": false,
   "found_count": 8,
   "low_time": 5,
   "high_time": 20,

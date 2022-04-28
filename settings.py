@@ -8,6 +8,7 @@ imagesDir = "ErrorImages/"
 users = data["users"]
 lolzdomain = data["lolz_domain"]
 answers_server = data["answers_server"]
+try_questions = data["try_questions"]
 lolzUrl = "https://" + lolzdomain + "/"
 proxy_type = data["proxy_type"]
 found_count = data["found_count"]

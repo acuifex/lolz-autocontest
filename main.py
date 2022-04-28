@@ -143,6 +143,11 @@ class User:
         self.session = newSession
 
     def solvecontest(self, thrid) -> bool:  # return whether we were successful
+        solver = solvers.SolverAnswers(self)
+
+        if not solver.onBeforeRequest(thrid):
+            return False
+
         contestResp = self.makerequest("GET",
                                        settings.lolzUrl + "threads/" + str(thrid) + "/",
                                        retries=3,
@@ -185,7 +190,7 @@ class User:
         if captchaType != "AnswerCaptcha":
             raise RuntimeError("Captcha type changed. bailing out")
 
-        participateParams = self.solver.solve(divcaptcha)
+        participateParams = solver.solve(divcaptcha)
         if participateParams is None:
             return False
 
@@ -198,10 +203,10 @@ class User:
             self.blacklist.add(thrid)
 
         if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
-            self.solver.onSuccess(response)
+            solver.onSuccess(response)
             return True
         else:
-            self.solver.onFailure(response)
+            solver.onFailure(response)
             return False
 
     def solvepage(self, csrf) -> bool:  # return whether we found any contests or not
@@ -247,9 +252,6 @@ class User:
             thrid = int(contestDiv.get('id').split('-')[1])
 
             if thrid in self.blacklist or thrid in settings.ExpireBlacklist:
-                continue
-
-            if not self.solver.onBeforeRequest(thrid):
                 continue
 
             found_contest = True
@@ -335,8 +337,6 @@ class User:
                 raise Exception("%s has empty proxy_pool" % self.username)
 
         self.blacklist = set()
-
-        self.solver = solvers.SolverAnswers(self)
 
         # kinda a hack to loop trough proxies because python doesn't have static variables
         self.current_proxy_number = -1  # self.changeproxy adds one to this number
