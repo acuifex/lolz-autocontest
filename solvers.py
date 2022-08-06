@@ -27,10 +27,11 @@ class SolverFakeButton:
     def hardenContestInfo(self, soupMarginBlock: BeautifulSoup):
         # if re.match("\s*Завершение через \d+ (дня|день) \d+ час(а|ов) \d+ минуты? \d+ секунды?", soupMarginBlock.text):
         # fuck russian
-        if re.match("\s*Завершение через (\d+ д\w{0,4} \d+ час\w{0,4} \d+ минут\w{0,4}|((\d+ час\w{0,4} )?\d+ минут\w{0,4} )?\d+ секунд\w{0,4})", soupMarginBlock.text):
-            match = soupMarginBlock.find(text=re.compile("^ (\d+ д\w{0,4} \d+ час\w{0,4} \d+ минут\w{0,4}|((\d+ час\w{0,4} )?\d+ минут\w{0,4} )?\d+ секунд\w{0,4})\s*$", flags=re.MULTILINE), recursive=False)
+        if re.match("\s*Завершение через(?: \d+ д\w{0,4})?(?: \d+ час\w{0,4})?(?: \d+ минут\w{0,4})?(?: \d+ секунд\w{0,4})?", soupMarginBlock.text):
+            # https://stackoverflow.com/a/24542398
+            match = soupMarginBlock.find(text=re.compile("^(?!\s*$)(?: \d+ д\w{0,4})?(?: \d+ час\w{0,4})?(?: \d+ минут\w{0,4})?(?: \d+ секунд\w{0,4})?\s*$", flags=re.MULTILINE), recursive=False)
             if match is not None:
-                match.string.replace_with(re.sub("^ (\d+ д\w{0,4} \d+ час\w{0,4} \d+ минут\w{0,4}|((\d+ час\w{0,4} )?\d+ минут\w{0,4} )?\d+ секунд\w{0,4})\s*$", " 2 дня 23 часа 59 минут", match.string, flags=re.MULTILINE))
+                match.string.replace_with(re.sub("^(?!\s*$)(?: \d+ д\w{0,4})?(?: \d+ час\w{0,4})?(?: \d+ минут\w{0,4})?(?: \d+ секунд\w{0,4})?\s*$", " 2 дня 23 часа 59 минут", match.string, flags=re.MULTILINE))
         elif re.match("\s*Приняли участие: \d+ пользовате\w{0,6}", soupMarginBlock.text):
             match = soupMarginBlock.find(text=re.compile("^ \d+ пользовате\w{0,6}\s*$", flags=re.MULTILINE), recursive=False)
             if match is not None:
