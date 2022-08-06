@@ -163,14 +163,19 @@ class SolverFakeButton:
                             changedtooltip["title"] = "Отредактировал acuifex 1 мин. назад"
             publicControls = messageMeta.find("div", {"class": "publicControls"}, recursive=False)
             if publicControls is not None:
-                likesLink = publicControls.find("span",  # was "a" a week ago
+
+                likesLink = publicControls.find(re.compile("^(span|a)$", flags=re.MULTILINE),
                                                 {"class": "Tooltip PopupTooltip LikeLink item control like",
                                                  "data-content": ".TooltipContent"}, recursive=False)
                 if likesLink is not None:
-                    if likesLink.get("href") is not None:  # was removed when a changed to span, i'll leave it here just in case
-                        likesLink["href"] = re.sub("^posts/\d+/like$",
-                                                   "posts/32607564/like",
-                                                   likesLink["href"], flags=re.MULTILINE)
+                    # TODO: this is kinda a bandaid fix for limited/unlimited accounts, but it'll have to do for now
+                    likesLink.name = "span"
+                    if likesLink.get("href") is not None:
+                        if re.match("^posts/\d+/like$", likesLink["href"], flags=re.MULTILINE):
+                            del likesLink["href"]
+                        # likesLink["href"] = re.sub("^posts/\d+/like$",
+                        #                            "posts/32607564/like",
+                        #                            likesLink["href"], flags=re.MULTILINE)
                     if likesLink.get("data-likes-url") is not None:
                         likesLink["data-likes-url"] = re.sub("^posts/\d+/likes-inline$",
                                                              "posts/32607564/likes-inline",
