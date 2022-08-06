@@ -143,7 +143,7 @@ class User:
         self.session = newSession
 
     def solvecontest(self, thrid) -> bool:  # return whether we were successful
-        solver = solvers.SolverAnswers(self)
+        solver = solvers.SolverFakeButton(self)
 
         if not solver.onBeforeRequest(thrid):
             return False
@@ -169,28 +169,7 @@ class User:
             raise RuntimeError("csrf token is empty. likely bad cookies")
         self.logger.debug("csrf: %s", str(csrf))
 
-        ContestCaptcha = contestSoup.find("div", class_="ContestCaptcha")
-        if ContestCaptcha is None:
-            self.logger.warning("Couldn't get ContestCaptcha. Lag or contest is over?")
-            return False
-
-        divcaptcha = ContestCaptcha.find("div", class_="captchaBlock")
-        if divcaptcha is None:
-            self.logger.warning("Couldn't get captchaBlock. Lag or contest is over?")
-            return False
-
-        captchatypeobj = divcaptcha.find("input", attrs={"name": "captcha_type"})
-
-        if captchatypeobj is None:
-            self.logger.warning("captcha_type not found. adding to blacklist...")
-            self.blacklist.add(thrid)
-            return False
-
-        captchaType = captchatypeobj.get("value")
-        if captchaType != "AnswerCaptcha":
-            raise RuntimeError("Captcha type changed. bailing out")
-
-        participateParams = solver.solve(divcaptcha)
+        participateParams = solver.solve(contestSoup)
         if participateParams is None:
             return False
 
@@ -336,8 +315,6 @@ class User:
 
 
 def main():
-    if not os.path.exists(settings.imagesDir):
-        os.makedirs(settings.imagesDir)
     with ThreadPool(processes=len(settings.users)) as pool:
         userlist = [User(u) for u in list(settings.users.items())]
         pool.map(User.work, userlist)

@@ -1,110 +1,199 @@
+import copy
+import hashlib
 import re
-from typing import Union
 import time
+from pathlib import Path
+from typing import Union
+
+from bs4 import BeautifulSoup
 
 import settings
 
-pattern_captcha_sid = re.compile(r"sid\s*:\s*'([0-9a-f]{32})'", re.MULTILINE)
-pattern_captcha_dot = re.compile(r'XenForo.ClickCaptcha.dotSize\s*=\s*(\d+);', re.MULTILINE)
-pattern_captcha_img = re.compile(r'XenForo.ClickCaptcha.imgData\s*=\s*"([A-Za-z0-9+/=]+)";', re.MULTILINE)
-pattern_hint_letter = re.compile(r'Starts with \'(.)\' letter', re.MULTILINE)
+known_hashes = [
+    "6b6b50b876cb7ac612021610fd13cd93b6b734ad801d34f93373dbe3b47f2dc2",
+    "7eddfce84b8e86eff974299f596bd3afdadb5e0b78bb4fb784902accee1c729d"
+]
 
-
-class SolverAnswers:
+class SolverFakeButton:
     def __init__(self, puser):
         self.puser = puser
         self.id = -1
-        self.sendanswer = False
-        self.question = None
-        self.placeholder = None
-        self.answer = None
 
     def onBeforeRequest(self, id) -> bool:
         self.id = id
-        return True  # TODO: When try_questions is false, query the server for answers here
+        return True
 
-    def solve(self, captchaBlockSoup) -> Union[dict, None]:
+    # please someone review these two functions bellow for any bypasses
+    def hardenContestInfo(self, soupMarginBlock: BeautifulSoup):
+        # if re.match("\s*Завершение через \d+ (дня|день) \d+ час(а|ов) \d+ минуты? \d+ секунды?", soupMarginBlock.text):
+        # fuck russian
+        if re.match("\s*Завершение через (\d+ д\w{0,4} \d+ час\w{0,4} \d+ минут\w{0,4}|((\d+ час\w{0,4} )?\d+ минут\w{0,4} )?\d+ секунд\w{0,4})", soupMarginBlock.text):
+            match = soupMarginBlock.find(text=re.compile("^ (\d+ д\w{0,4} \d+ час\w{0,4} \d+ минут\w{0,4}|((\d+ час\w{0,4} )?\d+ минут\w{0,4} )?\d+ секунд\w{0,4})\s*$", flags=re.MULTILINE), recursive=False)
+            if match is not None:
+                match.string.replace_with(re.sub("^ (\d+ д\w{0,4} \d+ час\w{0,4} \d+ минут\w{0,4}|((\d+ час\w{0,4} )?\d+ минут\w{0,4} )?\d+ секунд\w{0,4})\s*$", " 2 дня 23 часа 59 минут", match.string, flags=re.MULTILINE))
+        elif re.match("\s*Приняли участие: \d+ пользовате\w{0,6}", soupMarginBlock.text):
+            match = soupMarginBlock.find(text=re.compile("^ \d+ пользовате\w{0,6}\s*$", flags=re.MULTILINE), recursive=False)
+            if match is not None:
+                match.string.replace_with(re.sub("^ \d+ пользовате\w{0,6}\s*$", " 42 пользователей", match.string, flags=re.MULTILINE))
+        elif re.match("\s*Количество призов: \d+", soupMarginBlock.text):
+            match = soupMarginBlock.find(text=re.compile("^ \d+\s*$", flags=re.MULTILINE), recursive=False)
+            if match is not None:
+                match.string.replace_with(re.sub("^ \d+\s*$", " 42", match.string, flags=re.MULTILINE))
+        elif re.match("\s*Приз:\s+Деньги\s+\(\d+ ₽(?: x \d+)?\)", soupMarginBlock.text):
+            bold = soupMarginBlock.find("span", {"class":"bold"}, recursive=False)
+            if bold is not None:
+                bold.string = re.sub("^\s+Деньги\s+\(\d+ ₽(?: x \d+)?\)\s+$", "Деньги (420 ₽)", bold.string, flags=re.MULTILINE)
+
+        elif re.match("\s*Необходимо набрать за 7 дней \d+ симп\w{0,8}", soupMarginBlock.text):
+            match = soupMarginBlock.find(
+                text=re.compile("^Необходимо набрать за 7 дней \d+ симп\w{0,8}$", flags=re.MULTILINE),
+                recursive=False)
+            if match is not None:
+                match.string.replace_with(
+                    re.sub("^Необходимо набрать за 7 дней \d+ симп\w{0,8}$",
+                           "Необходимо набрать за 7 дней 100 симпатий", match.string, flags=re.MULTILINE))
+
+        elif re.match("\s*Необходимо набрать за все время \d+ симп\w{0,8}", soupMarginBlock.text):
+            match = soupMarginBlock.find(text=re.compile("^Необходимо набрать за все время \d+ симп\w{0,8}$", flags=re.MULTILINE),
+                                         recursive=False)
+            if match is not None:
+                match.string.replace_with(
+                    re.sub("^Необходимо набрать за все время \d+ симп\w{0,8}$", "Необходимо набрать за все время 1 симпатию", match.string, flags=re.MULTILINE))
+        elif re.match("\s*Бот выбирает победителей случайным образом\.", soupMarginBlock.text):
+            pass  # Do nothing
+        pass
+
+    # this is a dimension without PEP 505
+    def hardenMessageContent(self, soupMessageContent: BeautifulSoup):
+        article = soupMessageContent.find("article", recursive=False)
+        if article is not None:
+            usercontent = article.find("blockquote", {"class": "messageText SelectQuoteContainer baseHtml ugc"},
+                                       recursive=False)
+            if usercontent is not None:
+                usercontent.clear()  # nuke all user content
+            contestThreadBlock = article.find("div", {"class": "contestThreadBlock"}, recursive=False)
+            if contestThreadBlock is not None:
+                for captchainfo in contestThreadBlock.find_all("div", {"class": "marginBlock"}, recursive=False):
+                    self.hardenContestInfo(captchainfo)
+                contestcaptcha = contestThreadBlock.find("div", {"class": "ContestCaptcha mn-15-0-0"}, recursive=False)
+                if contestcaptcha is not None:
+                    if contestcaptcha.get("data-refresh-url") is not None:
+                        contestcaptcha["data-refresh-url"] = re.sub("^threads/\d+/contest/captcha$",
+                                                                    "threads/4154883/contest/captcha",
+                                                                    contestcaptcha["data-refresh-url"], flags=re.MULTILINE)
+
+                    requestTime = contestcaptcha.find("input", {"type": "hidden", "name": "request_time"},
+                                                      recursive=False)
+                    if requestTime is not None:
+                        if requestTime.get("value") is not None:
+                            requestTime["value"] = re.sub("^\d+$", "1000166400", requestTime["value"], flags=re.MULTILINE)
+
+                    xftoken = contestcaptcha.find("input", {"type": "hidden", "name": "_xfToken"}, recursive=False)
+                    if xftoken is not None:
+                        if xftoken.get("value") is not None:
+                            xftoken["value"] = re.sub("^\d+,\d+,[0-9a-f]{40}$",
+                                                      "136698,1000166400,26b4d80b759884633282c1e4d8b42e12b3776249",
+                                                      xftoken["value"], flags=re.MULTILINE)
+
+                participate = contestThreadBlock.find("a",
+                                                      {"class": "LztContest--Participate button mn-15-0-0 primary"},
+                                                      recursive=False)
+                if participate is not None:
+                    if participate.get("href") is not None:
+                        participate["href"] = re.sub("^threads/\d+/participate$",
+                                                     "threads/4154883/participate",
+                                                     participate["href"], flags=re.MULTILINE)
+
+        messageMeta = soupMessageContent.find("div", {"class": "messageMeta ToggleTriggerAnchor"}, recursive=False)
+        if messageMeta is not None:
+            privateControls = messageMeta.find("div", {"class": "privateControls"}, recursive=False)
+            if privateControls is not None:
+                permalink = privateControls.find("a",
+                                                 {
+                                                     "class": "item messageDateInBottom datePermalink hashPermalink OverlayTrigger muted",
+                                                     "title": "Постоянная ссылка"}, recursive=False)
+                if permalink is not None:
+                    if permalink.get("href") is not None:
+                        permalink["href"] = re.sub("^threads/\d+/$",
+                                                   "threads/4154883/",
+                                                   permalink["href"], flags=re.MULTILINE)
+                    if permalink.get("data-href") is not None:
+                        permalink["data-href"] = re.sub("^posts/\d+/permalink$",
+                                                        "posts/32607564/permalink",
+                                                        permalink["data-href"], flags=re.MULTILINE)
+
+                    datetime = permalink.find("abbr", {"class": "DateTime"}, recursive=False)
+                    if datetime is not None:
+                        if datetime.get("data-time") is not None:
+                            datetime["data-time"] = re.sub("^\d+$", "1000166400", datetime["data-time"], flags=re.MULTILINE)
+                        if datetime.get("data-diff") is not None:
+                            datetime["data-diff"] = re.sub("^\d+$", "42", datetime["data-diff"], flags=re.MULTILINE)
+                        if datetime.get("data-datestring") is not None:
+                            datetime["data-datestring"] = re.sub("^\d+ \w+ \d+$", "11 сен 2001",
+                                                                 datetime["data-datestring"], flags=re.MULTILINE)
+                        if datetime.get("data-timestring") is not None:
+                            datetime["data-timestring"] = re.sub("^\d+:\d+$", "00:00", datetime["data-timestring"], flags=re.MULTILINE)
+                        datetime.string = re.sub("^\d+ \w+ \d+ в \d+:\d+$", "11 сен 2001 в 00:00", datetime.string, flags=re.MULTILINE)
+
+            publicControls = messageMeta.find("div", {"class": "publicControls"}, recursive=False)
+            if publicControls is not None:
+                likesLink = publicControls.find("span",  # was "a" a week ago
+                                                {"class": "Tooltip PopupTooltip LikeLink item control like",
+                                                 "data-content": ".TooltipContent"}, recursive=False)
+                if likesLink is not None:
+                    if likesLink.get("href") is not None:  # was removed when a changed to span, i'll leave it here just in case
+                        likesLink["href"] = re.sub("^posts/\d+/like$",
+                                                   "posts/32607564/like",
+                                                   likesLink["href"], flags=re.MULTILINE)
+                    if likesLink.get("data-likes-url") is not None:
+                        likesLink["data-likes-url"] = re.sub("^posts/\d+/likes-inline$",
+                                                             "posts/32607564/likes-inline",
+                                                             likesLink["data-likes-url"], flags=re.MULTILINE)
+                    if likesLink.get("data-container") is not None:
+                        likesLink["data-container"] = re.sub("^#likes-post-\d+$",
+                                                             "#likes-post-32607564",
+                                                             likesLink["data-container"], flags=re.MULTILINE)
+                    likeLabel = likesLink.find("span", {"class": "LikeLabel"}, recursive=False)
+                    if likeLabel is not None:
+                        likeLabel.string = re.sub("^\d+$", "42", likeLabel.string, flags=re.MULTILINE)
+                tooltipContent = publicControls.find("div", {"class": "TooltipContent"}, recursive=False)
+                if tooltipContent is not None:
+                    if tooltipContent.get("id") is not None:
+                        tooltipContent["id"] = re.sub("^likes-post-\d+$",
+                                                      "likes-post-32607564",
+                                                      tooltipContent["id"], flags=re.MULTILINE)
+                    likesSummary = tooltipContent.find("div", {"class": "likesSummary"}, recursive=False)
+                    if likesSummary is not None:
+                        LikeText = likesSummary.find("span", {"class": "LikeText"}, recursive=False)
+                        if LikeText is not None:
+                            LikeText.clear()  # gtfo lolz simps lol
+
+    def solve(self, contestSoup: BeautifulSoup) -> Union[dict, None]:
         time.sleep(settings.solve_time)
-        self.question = captchaBlockSoup.find("div", attrs={"class": "ddText"}).text
 
-        # TODO: add exact threadid search
-        params = {
-            "id": self.id
-        }
-        if settings.try_questions:
-            params["q"] = self.question
-            placeholdertext = captchaBlockSoup.find("input", attrs={"id": "CaptchaQuestionAnswer"})["placeholder"]
-            if placeholdertext:
-                self.placeholder = pattern_hint_letter.search(placeholdertext).group(1)
-                params["l"] = self.placeholder
-
-        response = self.puser.makerequest("GET", "https://" + settings.answers_server + "/query.php", params=params,
-                                          timeout=12.05, retries=3, checkforjs=False)
-
-        if response is None:
+        ContestCaptcha = contestSoup.find("div", class_="ContestCaptcha")
+        if ContestCaptcha is None:
+            self.puser.logger.warning("Couldn't get ContestCaptcha. Lag or contest is over?")
             return None
 
-        resp = response.json()
+        messageContentCopy = copy.copy(contestSoup.find("div", {"class": "messageContent"}))
+        self.hardenMessageContent(messageContentCopy)
+        # i should honestly be using digest, but i'll leave it hexdigest for my own sanity
+        result = hashlib.sha256(str(messageContentCopy).encode('utf-8')).hexdigest()
+        if result not in known_hashes:
+            self.puser.logger.critical("bad hash, go and check this junk you fool\n%s\n%s", result, messageContentCopy)
+            Path("badhashes").mkdir(parents=True, exist_ok=True)
+            with open(f"badhashes/{result}.html", "w") as f:
+                f.write(str(contestSoup))
+            raise RuntimeError("fucking loser lol")
 
-        returnval = None
-        if resp["status"] == 0:
-            self.answer = resp["answer"]
-
-            returnval = {
-                'captcha_question_answer': self.answer,
-                'captcha_type': "AnswerCaptcha",
-            }
-        elif resp["status"] == -1:
-            self.puser.logger.warning("%d doesn't have an answer. blacklisting for 5 minutes", self.id)
-            settings.ExpireBlacklist[self.id] = time.time() + 300 # TODO: make configurable timeout
-        elif resp["status"] == 1: # TODO: make this check configurable
-            if settings.try_questions:
-                self.answer = resp["answer"]
-                returnval = {
-                    'captcha_question_answer': self.answer,
-                    'captcha_type': "AnswerCaptcha",
-                }
-                self.sendanswer = True
-            else:
-                self.puser.logger.warning("%d %d answer isn't exact. blacklisting for 5 minutes", resp["threadid"], resp["id"])
-                settings.ExpireBlacklist[self.id] = time.time() + 300
-        else:
-            raise RuntimeError("Answers server: unknown response status. You should probably update")
-        self.puser.logger.verbose("threadid:%s, answer id:%s, status:%d, question:%s, placeholder:%s, answer:%s",
-                                  resp.get("threadid", self.id),
-                                  resp.get("id", None),
-                                  resp["status"],
-                                  self.question,
-                                  self.placeholder,
-                                  self.answer)
-        return returnval
+        # hardenMessageContent + hashing is gonna check for ["value"] and request_time. or at least i think so
+        request_time = ContestCaptcha.find("input", {"name": "request_time"}, recursive=False)
+        return {"request_time": request_time["value"]}  # returnval
 
     def onFailure(self, response):
-        self.puser.logger.error("%d didn't participate (wrong answer?): %s", self.id, str(response))
+        self.puser.logger.error("%d didn't participate (why lol?): %s", self.id, str(response))
         settings.ExpireBlacklist[self.id] = time.time() + 300000
 
     def onSuccess(self, response):
         self.puser.logger.debug("%s", str(response))
-        if self.sendanswer:
-            if self.question is None or self.answer is None or self.id == -1:
-                raise RuntimeError("onSuccess illegal state: question, answer or id is null")
-            self.puser.logger.debug("Submitting the answer to the answers server")
-            params = {
-                "id": self.id,
-                "q": self.question,
-                "a": self.answer,
-            }
-            if self.placeholder:
-                params["l"] = self.placeholder
-            response = self.puser.makerequest("POST", "https://" + settings.answers_server + "/submit.php", params=params,
-                                              timeout=12.05, retries=3, checkforjs=False)
-
-            if response is None:
-                self.puser.logger.warning("There was an issue submitting the answer")
-                return
-
-            status = response.json()["status"]
-            if status == 0:
-                self.puser.logger.debug("Successfully submitted the answer")
-            else:
-                raise RuntimeError("Answers server: unknown response status. You should probably update")

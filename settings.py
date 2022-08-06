@@ -4,7 +4,6 @@ import json
 
 f = open('settings.json')
 data = json.load(f)
-imagesDir = "ErrorImages/"
 users = data["users"]
 lolzdomain = data["lolz_domain"]
 answers_server = data["answers_server"]
