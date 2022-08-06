@@ -13,19 +13,19 @@ known_hashes = {
     "6b6b50b876cb7ac612021610fd13cd93b6b734ad801d34f93373dbe3b47f2dc2": "money",
     "bb40b0a905fbb715c324ba30c3ad73867728ef08e237c50d41a99e39b9f57e80": "money (no likes requirement)",
     "6da54c99814385049926e0871f865648a576a7ef9930071af503d307e9910b9b": "money (edited)",
-    # "MAKE THIS ONE YOURSELF LATER": "money (edited + no likes requirement)",
+    "400142f6c0ddfda579a034af73490a427331e7168d17519384b5bee2860505a1": "money (edited + no likes requirement)",  # created artificially
     "54bd5174b3f0b3a484fa1acc760f136890372d27e7cb45f36f148e4221c74954": "money (multiple)",
     "2c593b80777dd877a8ffb708b203a84c47aa7cf1a8ea866dfc105205b0e0a990": "money (multiple + edited)",
     "7eddfce84b8e86eff974299f596bd3afdadb5e0b78bb4fb784902accee1c729d": "money (multiple + no likes requirement)",
     "8371d07ce8ad7a2f438e848ebb94fb90e59900337ad5299c926fea3cbcb347dd": "money (multiple + no likes requirement + edited)",
-    "864f281c3074cfa190bec51172237c394964038608c2e86ff0d74786e06939d0": "items"  # missing money entry
-    # "MAKE THIS ONE YOURSELF LATER": "items (no likes requirement)",
-    # "MAKE THIS ONE YOURSELF LATER": "items (edited)",
-    # "MAKE THIS ONE YOURSELF LATER": "items (edited + no likes requirement)",
-    # "MAKE THIS ONE YOURSELF LATER": "items (multiple)",
-    # "MAKE THIS ONE YOURSELF LATER": "items (multiple + edited)",
-    # "MAKE THIS ONE YOURSELF LATER": "items (multiple + no likes requirement)",
-    # "MAKE THIS ONE YOURSELF LATER": "items (multiple + no likes requirement + edited)",
+    "864f281c3074cfa190bec51172237c394964038608c2e86ff0d74786e06939d0": "items",  # missing money entry
+    "01bd3155a1cccfc4369a8ba8909ab71458b07185fa0014bd806a7432900fcb21": "items (no likes requirement)",  # created artificially
+    "7ab9a4cc2b381de50185b84915c1d71c37dd4535c9f960b2601c0bc6c81dfb1f": "items (edited)",  # created artificially
+    "e22ed0b64f420b921154a373e74d0a8943eb555863dd38ab46e0162caa5cb4b6": "items (edited + no likes requirement)",  # created artificially
+    "d6c52bcfbb15fa792f303a6b194a10dae31f228d1ab6f2e6c30e8fbad0c3d240": "items (multiple)",  # created artificially
+    "d2e490769675acfa0726738827ca56aa701fe3860a5ff9e7df479b62ab1c2ac5": "items (multiple + edited)",  # created artificially
+    "d7df52164e864f27d408c4cec2a78e958ba8d53c01928b8126aa1d330f29ea83": "items (multiple + no likes requirement)",  # created artificially
+    "065719f92f714b20275dddd55050b8728b815126799ca0f4cf3e4bab3f7a2c9e": "items (multiple + no likes requirement + edited)",  # created artificially
     # TODO: some contests can have empty public controls. it might be related to contests created "just now"
     #"5e0696894179d53cbdc2ca7c43a4f883617e947449726c4438550c9a00d4f6c6": "items (without likes)"  # rare variation? bug?
 }
@@ -211,6 +211,7 @@ class SolverFakeButton:
             Path("badhashes").mkdir(parents=True, exist_ok=True)
             with open(f"badhashes/{self.id}_{result}.html", "w") as f:
                 f.write(str(contestSoup))
+            # TODO: handle bad hashes instead of raising runtime exception.
             raise RuntimeError("Unknown hash, please verify that nothing is wrong")
         self.puser.logger.info("Contest type %s, hash %s", known_hashes[result], result)
         # hardenMessageContent + hashing is gonna check for ["value"] and request_time. or at least i think so
