@@ -9,10 +9,26 @@ from bs4 import BeautifulSoup
 
 import settings
 
-known_hashes = [
-    "6b6b50b876cb7ac612021610fd13cd93b6b734ad801d34f93373dbe3b47f2dc2",
-    "7eddfce84b8e86eff974299f596bd3afdadb5e0b78bb4fb784902accee1c729d"
-]
+known_hashes = {
+    "6b6b50b876cb7ac612021610fd13cd93b6b734ad801d34f93373dbe3b47f2dc2": "money",
+    "bb40b0a905fbb715c324ba30c3ad73867728ef08e237c50d41a99e39b9f57e80": "money (no likes requirement)",
+    "6da54c99814385049926e0871f865648a576a7ef9930071af503d307e9910b9b": "money (edited)",
+    # "MAKE THIS ONE YOURSELF LATER": "money (edited + no likes requirement)",
+    "54bd5174b3f0b3a484fa1acc760f136890372d27e7cb45f36f148e4221c74954": "money (multiple)",
+    "2c593b80777dd877a8ffb708b203a84c47aa7cf1a8ea866dfc105205b0e0a990": "money (multiple + edited)",
+    "7eddfce84b8e86eff974299f596bd3afdadb5e0b78bb4fb784902accee1c729d": "money (multiple + no likes requirement)",
+    "8371d07ce8ad7a2f438e848ebb94fb90e59900337ad5299c926fea3cbcb347dd": "money (multiple + no likes requirement + edited)",
+    "864f281c3074cfa190bec51172237c394964038608c2e86ff0d74786e06939d0": "items"  # missing money entry
+    # "MAKE THIS ONE YOURSELF LATER": "items (no likes requirement)",
+    # "MAKE THIS ONE YOURSELF LATER": "items (edited)",
+    # "MAKE THIS ONE YOURSELF LATER": "items (edited + no likes requirement)",
+    # "MAKE THIS ONE YOURSELF LATER": "items (multiple)",
+    # "MAKE THIS ONE YOURSELF LATER": "items (multiple + edited)",
+    # "MAKE THIS ONE YOURSELF LATER": "items (multiple + no likes requirement)",
+    # "MAKE THIS ONE YOURSELF LATER": "items (multiple + no likes requirement + edited)",
+    # TODO: some contests can have empty public controls. it might be related to contests created "just now"
+    #"5e0696894179d53cbdc2ca7c43a4f883617e947449726c4438550c9a00d4f6c6": "items (without likes)"  # rare variation? bug?
+}
 
 class SolverFakeButton:
     def __init__(self, puser):
@@ -135,7 +151,16 @@ class SolverFakeButton:
                         if datetime.get("data-timestring") is not None:
                             datetime["data-timestring"] = re.sub("^\d+:\d+$", "00:00", datetime["data-timestring"], flags=re.MULTILINE)
                         datetime.string = re.sub("^\d+ \w+ \d+ в \d+:\d+$", "11 сен 2001 в 00:00", datetime.string, flags=re.MULTILINE)
-
+                changed = privateControls.find("span", {"class": "item muted hiddenNarrowUnder"}, recursive=False)
+                if changed is not None:
+                    changedtooltip = changed.find("span",
+                                                  {
+                                                      "class": "Tooltip",
+                                                      "title": re.compile("^Отредактировал .+$", flags=re.MULTILINE)
+                                                  }, recursive=False)
+                    if changedtooltip is not None:
+                        if re.match("^\s*Изменено\s*$", changedtooltip.text, flags=re.MULTILINE):
+                            changedtooltip["title"] = "Отредактировал acuifex 1 мин. назад"
             publicControls = messageMeta.find("div", {"class": "publicControls"}, recursive=False)
             if publicControls is not None:
                 likesLink = publicControls.find("span",  # was "a" a week ago
@@ -182,12 +207,12 @@ class SolverFakeButton:
         # i should honestly be using digest, but i'll leave it hexdigest for my own sanity
         result = hashlib.sha256(str(messageContentCopy).encode('utf-8')).hexdigest()
         if result not in known_hashes:
-            self.puser.logger.critical("bad hash, go and check this junk you fool\n%s\n%s", result, messageContentCopy)
+            self.puser.logger.critical("bad hash\n%s\n%s", result, messageContentCopy)
             Path("badhashes").mkdir(parents=True, exist_ok=True)
-            with open(f"badhashes/{result}.html", "w") as f:
+            with open(f"badhashes/{self.id}_{result}.html", "w") as f:
                 f.write(str(contestSoup))
-            raise RuntimeError("fucking loser lol")
-
+            raise RuntimeError("Unknown hash, please verify that nothing is wrong")
+        self.puser.logger.info("Contest type %s, hash %s", known_hashes[result], result)
         # hardenMessageContent + hashing is gonna check for ["value"] and request_time. or at least i think so
         request_time = ContestCaptcha.find("input", {"name": "request_time"}, recursive=False)
         return {"request_time": request_time["value"]}  # returnval
