@@ -237,7 +237,7 @@ class SolverFakeButton:
             return None
 
         messageContentCopy = copy.copy(contestSoup.find("div", {"class": "messageContent"}))
-        self.hardenMessageContent(messageContentCopy)
+        self.hardenMessageContent(messageContentCopy, contestSoup)
         # i should honestly be using digest, but i'll leave it hexdigest for my own sanity
         result = hashlib.sha256(str(messageContentCopy).encode('utf-8')).hexdigest()
         if result not in known_hashes:
