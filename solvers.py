@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Union
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 import settings
 
@@ -40,7 +40,7 @@ class SolverFakeButton:
         return True
 
     # please someone review these two functions bellow for any bypasses
-    def hardenContestInfo(self, soupMarginBlock: BeautifulSoup):
+    def hardenContestInfo(self, soupMarginBlock: Tag):
         # if re.match("\s*Завершение через \d+ (дня|день) \d+ час(а|ов) \d+ минуты? \d+ секунды?", soupMarginBlock.text):
         # fuck russian
         if re.match("\s*Завершение через(?: \d+ д\w{0,4})?(?: \d+ час\w{0,4})?(?: \d+ минут\w{0,4})?(?: \d+ секунд\w{0,4})?", soupMarginBlock.text):
@@ -81,7 +81,7 @@ class SolverFakeButton:
         pass
 
     # this is a dimension without PEP 505
-    def hardenMessageContent(self, soupMessageContent: BeautifulSoup):
+    def hardenMessageContent(self, soupMessageContent: Tag, bs4InstanceToCreateTagsThisIsConst: BeautifulSoup):
         article = soupMessageContent.find("article", recursive=False)
         if article is not None:
             usercontent = article.find("blockquote", {"class": "messageText SelectQuoteContainer baseHtml ugc"},
@@ -165,11 +165,13 @@ class SolverFakeButton:
             if publicControls is not None:
 
                 likesLink = publicControls.find(re.compile("^(span|a)$", flags=re.MULTILINE),
-                                                {"class": "Tooltip PopupTooltip LikeLink item control like",
+                                                {"class": re.compile("(?:Tooltip PopupTooltip )?LikeLink item control like"),
                                                  "data-content": ".TooltipContent"}, recursive=False)
                 if likesLink is not None:
                     # TODO: this is kinda a bandaid fix for limited/unlimited accounts, but it'll have to do for now
                     likesLink.name = "span"
+                    # TODO: and this is a bandaid fix for no likes.
+                    likesLink["class"] = "Tooltip PopupTooltip LikeLink item control like"
                     if likesLink.get("href") is not None:
                         if re.match("^posts/\d+/like$", likesLink["href"], flags=re.MULTILINE):
                             del likesLink["href"]
@@ -186,7 +188,7 @@ class SolverFakeButton:
                                                              likesLink["data-container"], flags=re.MULTILINE)
                     likeLabel = likesLink.find("span", {"class": "LikeLabel"}, recursive=False)
                     if likeLabel is not None:
-                        likeLabel.string = re.sub("^\d+$", "42", likeLabel.string, flags=re.MULTILINE)
+                        likeLabel.string = re.sub("^\d*$", "42", str(likeLabel.string or ''), flags=re.MULTILINE)
                 tooltipContent = publicControls.find("div", {"class": "TooltipContent"}, recursive=False)
                 if tooltipContent is not None:
                     if tooltipContent.get("id") is not None:
@@ -198,6 +200,33 @@ class SolverFakeButton:
                         LikeText = likesSummary.find("span", {"class": "LikeText"}, recursive=False)
                         if LikeText is not None:
                             LikeText.clear()  # gtfo lolz simps lol
+                else:
+                    # TODO: still no likes fix
+                    newtooltipContent = bs4InstanceToCreateTagsThisIsConst \
+                        .new_tag("div",
+                                 attrs={
+                                     "class": "TooltipContent",
+                                     "id": "likes-post-32607564"
+                                 })
+                    newlikesSummary = bs4InstanceToCreateTagsThisIsConst \
+                        .new_tag("div",
+                                 attrs={
+                                     "class": "likesSummary"
+                                 })
+
+                    newlikeText = bs4InstanceToCreateTagsThisIsConst \
+                        .new_tag("span",
+                                 attrs={
+                                     "class": "LikeText"
+                                 })
+                    newlikesSummary.append("\n")
+                    newlikesSummary.append(newlikeText)
+                    newlikesSummary.append("\n")
+                    newtooltipContent.append("\n")
+                    newtooltipContent.append(newlikesSummary)
+                    newtooltipContent.append("\n")
+                    publicControls.append(newtooltipContent)
+                    publicControls.append("\n")
 
     def solve(self, contestSoup: BeautifulSoup) -> Union[dict, None]:
         time.sleep(settings.solve_time)
