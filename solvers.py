@@ -214,7 +214,8 @@ class SolverFakeButton:
         if result not in known_hashes:
             self.puser.logger.critical("bad hash\n%s\n%s", result, messageContentCopy)
             Path("badhashes").mkdir(parents=True, exist_ok=True)
-            with open(f"badhashes/{self.id}_{result}.html", "w") as f:
+            # windows users can't have nice standards smh
+            with open(f"badhashes/{self.id}_{result}.html", "w", encoding="utf-8") as f:
                 f.write(str(contestSoup))
             # TODO: handle bad hashes instead of raising runtime exception.
             raise RuntimeError("Unknown hash, please verify that nothing is wrong")
