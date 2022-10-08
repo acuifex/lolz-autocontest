@@ -1,12 +1,14 @@
 # Specify filepatterns you want git to ignore.
 /settings.json
-/lolzautocontest.log
+/lolzautocontest.log*
 /lolzautocontest-errors.log
 /nohup.out
 /venv/
 /.idea/
 /__pycache__/
 /ErrorImages/
+
+/badhashes/
 
 # файлы самого лолза. для собственна всякой хуеты
 /lolz files/
