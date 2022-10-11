@@ -273,7 +273,7 @@ class SolverFakeButton:
         contestThreadBlock = messageContentCopy.find("div", {"class": "contestThreadBlock"})
         if contestThreadBlock is not None:
             for captchainfo in contestThreadBlock.find_all("div", {"class": "marginBlock"}, recursive=False):
-                # GEEET OUUUUUUUUUUUUTTTTT. DON"T FUCKING CAAAAAAAEREEEEEEEEE. GET OUTTTTTTT
+                # https://youtu.be/FBdFhgWYEjM
                 if re.match("\s*Приз:\s+Слив фотографий", captchainfo.text):
                     settings.ExpireBlacklist[self.id] = time.time() + 30000000000
                     self.puser.logger.notice("saved your ass from a useless contest")
