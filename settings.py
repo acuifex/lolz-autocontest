@@ -8,6 +8,7 @@ users = data["users"]
 lolzdomain = data["lolz_domain"]
 lolzUrl = "https://" + lolzdomain + "/"
 proxy_type = data["proxy_type"]
+check_hash = data["check_hash"]
 found_count = data["found_count"]
 low_time = data["low_time"]
 high_time = data["high_time"]

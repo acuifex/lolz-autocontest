@@ -331,10 +331,10 @@ class SolverFakeButton:
             self.puser.logger.warning("Couldn't get ContestCaptcha. Lag or contest is over?")
             return None
 
-        messageContentCopy = copy.copy(contestSoup.find("div", {"class": "messageContent"}))
+        messageContent = contestSoup.find("div", {"class": "messageContent"})
 
         # TODO: this looks ugly.
-        contestThreadBlock = messageContentCopy.find("div", {"class": "contestThreadBlock"})
+        contestThreadBlock = messageContent.find("div", {"class": "contestThreadBlock"})
         if contestThreadBlock is not None:
             for captchainfo in contestThreadBlock.find_all("div", {"class": "marginBlock"}, recursive=False):
                 # https://youtu.be/FBdFhgWYEjM
@@ -343,20 +343,25 @@ class SolverFakeButton:
                     self.puser.logger.notice("saved your ass from a useless contest")
                     return None
 
-        SolverFakeButton.hardenMessageContent(messageContentCopy)
-        # i should honestly be using digest, but i'll leave it hexdigest for my own sanity
-        result = hashlib.sha256(str(messageContentCopy).encode('utf-8')).hexdigest()
-        if result not in known_hashes:
-            self.puser.logger.critical("bad hash\n%s\n%s", result, messageContentCopy)
-            Path("badhashes").mkdir(parents=True, exist_ok=True)
-            # windows users can't have nice standards smh
-            with open(f"badhashes/{self.id}_{result}.html", "w", encoding="utf-8") as f:
-                f.write(str(contestSoup))
-            # TODO: handle bad hashes instead of raising runtime exception.
-            raise RuntimeError("Unknown hash, please verify that nothing is wrong")
-        self.puser.logger.info("Contest tags \"%s\", hash %s", known_hashes[result], result)
-        # hardenMessageContent + hashing is gonna check for ["value"] and request_time. or at least i think so
+        if settings.check_hash:
+            messageContentCopy = copy.copy(messageContent)
+            SolverFakeButton.hardenMessageContent(messageContentCopy)
+            # i should honestly be using digest, but i'll leave it hexdigest for my own sanity
+            result = hashlib.sha256(str(messageContentCopy).encode('utf-8')).hexdigest()
+            if result not in known_hashes:
+                self.puser.logger.critical("bad hash\n%s\n%s", result, messageContentCopy)
+                Path("badhashes").mkdir(parents=True, exist_ok=True)
+                # windows users can't have nice standards smh
+                with open(f"badhashes/{self.id}_{result}.html", "w", encoding="utf-8") as f:
+                    f.write(str(contestSoup))
+                # TODO: handle bad hashes instead of raising runtime exception.
+                raise RuntimeError("Unknown hash, please verify that nothing is wrong")
+            self.puser.logger.info("Contest tags \"%s\", hash %s", known_hashes[result], result)
+
         request_time = ContestCaptcha.find("input", {"name": "request_time"}, recursive=False)
+        if request_time is None:
+            self.puser.logger.warning("request_time is missing.")
+            return None
         return {"request_time": request_time["value"]}  # returnval
 
     def onFailure(self, response):
