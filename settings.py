@@ -14,6 +14,9 @@ low_time = data["low_time"]
 high_time = data["high_time"]
 switch_time = data["switch_time"]
 solve_time = data["solve_time"]
+anti_captcha_key = data["anti_captcha_key"]
+site_key = data["site_key"]
+send_referral_to_creator = data["send_referral_to_creator"]
 f.close()
 
 # TODO: this looks very hacky. find a better way

@@ -3,7 +3,6 @@ from bs4 import BeautifulSoup
 import random
 import string
 from typing import Union
-from urllib.parse import quote
 from multiprocessing.pool import ThreadPool
 import re
 import time
@@ -132,9 +131,9 @@ class User:
         self.session = newSession
 
     def solvecontest(self, thrid) -> bool:  # return whether we were successful
-        solver = solvers.SolverFakeButton(self)
+        solver = solvers.SolverTurnsile(self)
 
-        if not solver.onBeforeRequest(thrid):
+        if not solver.on_before_request(thrid):
             return False
 
         contestResp = self.makerequest("GET",
@@ -158,12 +157,11 @@ class User:
             raise RuntimeError("csrf token is empty. likely bad cookies")
         self.logger.debug("csrf: %s", str(csrf))
 
-        participateParams = solver.solve(contestSoup)
-        if participateParams is None:
+        if not solver.solve(contestSoup):
             return False
 
         self.logger.info("waiting for participation...")
-        response = self.participate(str(thrid), csrf, participateParams)
+        response = solver.participate(csrf)
         if response is None:
             return False
 
@@ -171,10 +169,10 @@ class User:
             self.blacklist.add(thrid)
 
         if "_redirectStatus" in response and response["_redirectStatus"] == 'ok':
-            solver.onSuccess(response)
+            solver.on_success(response)
             return True
         else:
-            solver.onFailure(response)
+            solver.on_failure(response)
             return False
 
     def solvepage(self) -> bool:  # return whether we found any contests or not
@@ -286,21 +284,6 @@ class User:
         self.session.cookies.set(domain=settings.lolzdomain, name='xf_viewedContestsHidden', value='1')
         self.session.cookies.set(domain=settings.lolzdomain, name='xf_feed_custom_order', value='post_date')
         self.session.cookies.set(domain=settings.lolzdomain, name='xf_logged_in', value='1')
-
-    def participate(self, threadid: str, csrf: str, data: dict):
-        # https://stackoverflow.com/questions/6005066/adding-dictionaries-together-python
-        response = self.makerequest("POST", settings.lolzUrl + "threads/" + threadid + "/participate",
-                                    data={**data, **{
-                                        '_xfRequestUri': quote("/threads/" + threadid + "/"),
-                                        '_xfNoRedirect': 1,
-                                        '_xfToken': csrf,
-                                        '_xfResponseType': "json",
-                                    }}, timeout=12.05, retries=3, checkforjs=True)
-
-        if response is None:
-            return None
-
-        return response.json()
 
 
 def main():

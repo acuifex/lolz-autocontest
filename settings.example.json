@@ -13,11 +13,14 @@
     }
   },
   "proxy_type": 1,
-  "lolz_domain": "lolz.guru",
+  "lolz_domain": "zelenka.guru",
   "check_hash": true,
   "found_count": 8,
   "low_time": 5,
   "high_time": 20,
   "switch_time": 1,
-  "solve_time": 1
+  "solve_time": 1,
+  "anti_captcha_key": "00000000000000000000000000000000",
+  "site_key": "0x4AAAAAAADMHhlDN2zO9nrC",
+  "send_referral_to_creator": true
 }
