@@ -14,7 +14,6 @@
   },
   "proxy_type": 1,
   "lolz_domain": "zelenka.guru",
-  "check_hash": true,
   "found_count": 8,
   "low_time": 5,
   "high_time": 20,
