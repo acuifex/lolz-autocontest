@@ -50,16 +50,15 @@ class SolverTurnsile:
 
     def request_turnsile_solve(self):
         params = {
-            'key': settings.anti_captcha_key,
-            'method': "turnstile",
-            'sitekey': settings.site_key,
-            'pageurl': settings.lolz_url + "threads/" + str(self.id) + "/",
-            'json': 1
+            'clientKey': settings.anti_captcha_key,
+            'task': {
+                'type': "TurnstileTaskProxyless",
+                'websiteKey': settings.site_key,
+                'websiteURL': settings.lolz_url + "threads/" + str(self.id) + "/",
+            }
         }
-        if settings.send_referral_to_creator:
-            params["softguru"] = 109978
 
-        submitresp = self.puser.makerequest("GET", "https://api.captcha.guru/in.php", params=params)
+        submitresp = self.puser.makerequest("POST", "https://api.capmonster.cloud/createTask", json=params)
 
         if submitresp is None:
             self.puser.logger.warning("couldn't send turnsile solve request")
@@ -67,20 +66,18 @@ class SolverTurnsile:
 
         submit = submitresp.json()
         self.puser.logger.debug(submit)
-        if submit["status"] == 0:
+        if submit["errorId"] != 0:
             self.puser.logger.warning("turnsile captcha submit was unsuccessful")
             return None
 
         while True:
             time.sleep(5)
             resp = self.puser.makerequest(
-                "GET",
-                "https://api.captcha.guru/res.php",
-                params={
-                    'key': settings.anti_captcha_key,
-                    'action': "get",
-                    'id': submit["request"],
-                    'json': 1
+                "POST",
+                "https://api.capmonster.cloud/getTaskResult",
+                json={
+                    'clientKey': settings.anti_captcha_key,
+                    'taskId': submit["taskId"],
                 }
             )
             if resp is None:
@@ -89,14 +86,13 @@ class SolverTurnsile:
 
             answer = resp.json()
             self.puser.logger.debug(answer)
-            if answer["status"] == 0:
-                if answer["request"] == "CAPCHA_NOT_READY":
-                    continue
-                if answer["request"] == "ERROR_CAPTCHA_UNSOLVABLE":
-                    self.puser.logger.warning("service failed to solve captcha")
-                    return None
-            if answer["status"] == 1:
-                return answer["request"]
+            if answer["status"] == "processing":
+                continue
+            if answer["errorId"] != 0:
+                self.puser.logger.warning("service failed to solve captcha")
+                return None
+            if answer["status"] == "ready":
+                return answer["solution"]["token"]
             else:
                 raise RuntimeError("unknown response from captcha solver")
 
