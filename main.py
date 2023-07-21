@@ -11,20 +11,17 @@ import coloredlogs
 import verboselogs
 from logging.handlers import RotatingFileHandler
 import sys
-import os
-from Crypto.Cipher import AES
+import httpx
 
 import settings
 import solvers
 
 fmterr = Format(
-    max_value_str_len=-1,
+    max_value_str_len=5000,
     color_scheme=ColorSchemes.common,
-    max_exc_str_len=-1,
+    max_exc_str_len=5000,
 )
 global_print_exc(fmt=fmterr)
-
-import httpx
 
 level_styles = {'debug': {'color': 8},
                 'info': {},
@@ -46,12 +43,8 @@ fileHandler = RotatingFileHandler("lolzautocontest.log", maxBytes=1024 * 1024 * 
 fileHandler.setFormatter(logfmt)
 
 pattern_csrf = re.compile(r'_csrfToken:\s*\"(.*)\",', re.MULTILINE)
-pattern_df_id = re.compile(r'document\.cookie\s*=\s*"([^="]+)="\s*\+\s*toHex\(slowAES\.decrypt\(toNumbers\(\"([0-9a-f]{32})\"\)', re.MULTILINE)
-
-
-# consoleHandler = logging.StreamHandler(sys.stdout)
-# consoleHandler.setFormatter(logfmt)
-
+# todo: this is possibly wrong
+pattern_df_id = re.compile(r'href\|max\|([0-9a-f]+)\|navigator\|if\|cookieEnabled\|cookie\|(\w+)\|else\|again\|in\|cookies\|your\|browser', re.MULTILINE)
 
 class User:
     def makerequest(self,
@@ -95,25 +88,21 @@ class User:
         if not noscript:
             return False
         pstring = noscript.find("p")
-        if not (pstring and pstring.string == "Oops! Please enable JavaScript and Cookies in your browser."):
+        if not (pstring and pstring.string == "Please enable JavaScript and Cookies in your browser."):
             return False
-        script = soup.find_all("script")
+        script = soup.find("script")
         if not script:
             return False
-        if not (script[1].string.startswith('var _0xe1a2=["\\x70\\x75\\x73\\x68","\\x72\\x65\\x70\\x6C\\x61\\x63\\x65","\\x6C\\x65\\x6E\\x67\\x74\\x68","\\x63\\x6F\\x6E\\x73\\x74\\x72\\x75\\x63\\x74\\x6F\\x72","","\\x30","\\x74\\x6F\\x4C\\x6F\\x77\\x65\\x72\\x43\\x61\\x73\\x65"];function ')
-                and script[0].get("src") == '/aes.js'):
+        if not script.string.startswith('setTimeout(eval(function(p,a,c,k,e,d)'):
             return False
 
-        self.logger.verbose("lolz asks to complete aes task")
+        self.logger.verbose("lolz asks to complete df_id task")
 
-        match = pattern_df_id.search(script[1].string)
-        cipher = AES.new(bytearray.fromhex("e9df592a0909bfa5fcff1ce7958e598b"), AES.MODE_CBC,
-                         bytearray.fromhex("5d10aa76f4aed1bdf3dbb302e8863d52"))
-        value = cipher.decrypt(bytearray.fromhex(match.group(2))).hex()
-        self.logger.debug("PoW answer %s", str(value))
+        match = pattern_df_id.search(script.string)
+        self.logger.debug("df_id %s", str(match.group(1)))
         self.session.cookies.set(domain="." + settings.lolzdomain,
-                                 name=match.group(1),
-                                 value=value)
+                                 name=match.group(2),
+                                 value=match.group(1))
         return True  # should retry
 
     def changeproxy(self):
