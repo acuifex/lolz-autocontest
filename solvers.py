@@ -89,9 +89,13 @@ class SolverTurnsile:
 
             answer = resp.json()
             self.puser.logger.debug(answer)
-            if answer["status"] == 0 and answer["request"] == "CAPCHA_NOT_READY":
-                continue
-            elif answer["status"] == 1:
+            if answer["status"] == 0:
+                if answer["request"] == "CAPCHA_NOT_READY":
+                    continue
+                if answer["request"] == "ERROR_CAPTCHA_UNSOLVABLE":
+                    self.puser.logger.warning("service failed to solve captcha")
+                    return None
+            if answer["status"] == 1:
                 return answer["request"]
             else:
                 raise RuntimeError("unknown response from captcha solver")
