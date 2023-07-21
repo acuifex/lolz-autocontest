@@ -27,7 +27,7 @@
 4. Устанавливаем пакеты нужные для работы.
 `pip3 install -U -r requirements.txt`
 5. Переименовываем `settings.example.yaml` в `settings.yaml` и редактируем в соответствии с секцией [Настройки](#Настройки)
-6. Запускаем в заднем фоне `bash ./start.sh`
+6. Запускаем `bash ./start.sh`
 
 Так же можно запускать в заднем фоне `bash ./start-background.sh` и останавливать `bash ./stop-background.sh`
 
