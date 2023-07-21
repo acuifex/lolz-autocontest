@@ -7,5 +7,6 @@ coloredlogs
 verboselogs
 pycryptodome
 socksio # for httpx socks
+pydantic-yaml>=1.1.0
 httpx>=0.22.0 # if i'll see an another person with a missing feature from this library, i swear to god, i'll do something bad to him
 h2>=3.2.0 # https://stackoverflow.com/a/70338878

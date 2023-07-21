@@ -1,5 +1,6 @@
 # Specify filepatterns you want git to ignore.
 /settings.json
+/settings.yaml
 /lolzautocontest.log*
 /lolzautocontest-errors.log
 /nohup.out

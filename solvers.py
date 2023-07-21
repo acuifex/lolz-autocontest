@@ -4,7 +4,8 @@ from urllib.parse import quote
 
 from bs4 import BeautifulSoup
 
-import settings
+from settings import settings
+
 
 class SolverTurnsile:
     def __init__(self, puser):
@@ -33,7 +34,7 @@ class SolverTurnsile:
             for contest_info in contest_thread_block.find_all("div", {"class": "marginBlock"}, recursive=False):
                 # https://youtu.be/FBdFhgWYEjM
                 if re.match("\s*Приз:\s+Слив фотографий", contest_info.text):
-                    settings.ExpireBlacklist[self.id] = time.time() + 30000000000
+                    settings._expire_blacklist[self.id] = time.time() + 30000000000
                     self.puser.logger.notice("saved your ass from a useless contest")
                     return False
 
@@ -52,7 +53,7 @@ class SolverTurnsile:
             'key': settings.anti_captcha_key,
             'method': "turnstile",
             'sitekey': settings.site_key,
-            'pageurl': settings.lolzUrl + "threads/" + str(self.id) + "/",
+            'pageurl': settings.lolz_url + "threads/" + str(self.id) + "/",
             'json': 1
         }
         if settings.send_referral_to_creator:
@@ -101,7 +102,7 @@ class SolverTurnsile:
 
         response = self.puser.makerequest(
             "POST",
-            settings.lolzUrl + "threads/" + str(self.id) + "/participate",
+            settings.lolz_url + "threads/" + str(self.id) + "/participate",
             params={"cf-turnstile-response": self.turnsile_response},
             data={
                 'request_time': str(self.request_time),
@@ -123,7 +124,7 @@ class SolverTurnsile:
 
     def on_failure(self, response):
         self.puser.logger.error("%d didn't participate (why lol?): %s", self.id, str(response))
-        settings.ExpireBlacklist[self.id] = time.time() + 300000
+        settings._expire_blacklist[self.id] = time.time() + 300000
 
     def on_success(self, response):
         self.puser.logger.debug("%s", str(response))

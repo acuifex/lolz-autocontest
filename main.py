@@ -12,7 +12,7 @@ from logging.handlers import RotatingFileHandler
 import sys
 import httpx
 
-import settings
+from settings import settings
 import solvers
 
 fmterr = Format(
@@ -99,7 +99,7 @@ class User:
 
         match = pattern_df_id.search(script.string)
         self.logger.debug("df_id %s", str(match.group(1)))
-        self.session.cookies.set(domain="." + settings.lolzdomain,
+        self.session.cookies.set(domain="." + settings.lolz_domain,
                                  name=match.group(2),
                                  value=match.group(1))
         return True  # should retry
@@ -137,7 +137,7 @@ class User:
             return False
 
         contestResp = self.makerequest("GET",
-                                       settings.lolzUrl + "threads/" + str(thrid) + "/",
+                                       settings.lolz_url + "threads/" + str(thrid) + "/",
                                        retries=3,
                                        timeout=12.05,
                                        checkforjs=True)
@@ -178,7 +178,7 @@ class User:
     def solvepage(self) -> bool:  # return whether we found any contests or not
         found_contest = False
         contestListResp = self.makerequest("GET",
-                                           settings.lolzUrl + "forums/contests/",
+                                           settings.lolz_url + "forums/contests/",
                                            timeout=12.05,
                                            retries=3,
                                            checkforjs=True)
@@ -210,7 +210,7 @@ class User:
         for contestDiv in threadsList:
             thrid = int(contestDiv.get('id').split('-')[1])
 
-            if thrid in self.blacklist or thrid in settings.ExpireBlacklist:
+            if thrid in self.blacklist or thrid in settings._expire_blacklist:
                 continue
 
             found_contest = True
@@ -241,9 +241,9 @@ class User:
             while True:
                 cur_time = time.time()
                 # remove old entries
-                settings.ExpireBlacklist = {k: v for k, v in settings.ExpireBlacklist.items() if v > cur_time}
+                settings._expire_blacklist = {k: v for k, v in settings._expire_blacklist.items() if v > cur_time}
                 self.logger.info("loop at %.2f seconds (blacklist size %d)", cur_time - starttime,
-                                 len(settings.ExpireBlacklist))
+                                 len(settings._expire_blacklist))
 
                 if self.solvepage():
                     found_contest = settings.found_count
@@ -256,7 +256,7 @@ class User:
 
     def __init__(self, parameters):
         self.session = httpx.Client(http2=True)
-        self.username = parameters[0]
+        self.username = parameters.name
 
         self.logger = verboselogs.VerboseLogger(self.username)
         self.logger.addHandler(fileHandler)
@@ -264,15 +264,15 @@ class User:
         coloredlogs.install(fmt=logfmtstr, stream=sys.stdout, level_styles=level_styles,
                             milliseconds=True, level='DEBUG', logger=self.logger)
         self.logger.debug("user parameters %s", parameters)
-        self.session.headers.update({"User-Agent": parameters[1]["User-Agent"]})
-        for key, value in parameters[1]["cookies"].items():
+        self.session.headers.update({"User-Agent": parameters.user_agent})
+        for key, value in parameters.cookies.items():
             self.session.cookies.set(
-                domain="." + settings.lolzdomain,
+                domain="." + settings.lolz_domain,
                 name=key,
                 value=value)
 
         if settings.proxy_type == 2:
-            self.proxy_pool = parameters[1]["proxy_pool"]
+            self.proxy_pool = parameters.proxy_pool
             if len(self.proxy_pool) == 0:
                 raise Exception("%s has empty proxy_pool" % self.username)
 
@@ -281,17 +281,16 @@ class User:
         # kinda a hack to loop trough proxies because python doesn't have static variables
         self.current_proxy_number = -1  # self.changeproxy adds one to this number
         self.changeproxy()  # set initital proxy
-        self.session.cookies.set(domain=settings.lolzdomain, name='xf_viewedContestsHidden', value='1')
-        self.session.cookies.set(domain=settings.lolzdomain, name='xf_feed_custom_order', value='post_date')
-        self.session.cookies.set(domain=settings.lolzdomain, name='xf_logged_in', value='1')
+        self.session.cookies.set(domain=settings.lolz_domain, name='xf_viewedContestsHidden', value='1')
+        self.session.cookies.set(domain=settings.lolz_domain, name='xf_feed_custom_order', value='post_date')
+        self.session.cookies.set(domain=settings.lolz_domain, name='xf_logged_in', value='1')
 
 
 def main():
     with ThreadPool(processes=len(settings.users)) as pool:
-        userlist = [User(u) for u in list(settings.users.items())]
+        userlist = [User(u) for u in settings.users]
         pool.map(User.work, userlist)
         print("lul done?")
-
 
 if __name__ == '__main__':
     main()
